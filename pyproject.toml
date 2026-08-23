@@ -17,7 +17,9 @@ dependencies = [
     "mlflow>=3.1.4",
     "numpy>=1.26",
     "opencv-python-headless>=4.10",
+    "openpyxl>=3.1",
     "pandas>=2.3",
+    "pillow>=12.3.0",
     "pyyaml>=6.0",
     "scikit-image>=0.24",
     "scikit-learn>=1.6",
@@ -37,3 +39,6 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff.lint]
+extend-select = ["I"]
