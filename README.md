@@ -2,6 +2,8 @@
 
 **Domain Generalization for Breast Ultrasound Lesion Segmentation**
 
+Detailed descriptions of the experiments and the full analysis workflow are available in the [project reports](reports/eda/image-domain-statistics.md).
+
 Breast ultrasound segmentation models are commonly trained and evaluated on data originating from the same dataset. In practice, however, ultrasound images can vary substantially across hospitals, scanners, acquisition protocols, and patient populations.
 
 A model that performs well on its source dataset may therefore degrade when applied to data from a previously unseen clinical environment.
@@ -85,6 +87,10 @@ Evaluation will include segmentation metrics such as:
 * HD95
 
 Additional analyses will investigate performance across lesion characteristics, dataset-specific image properties, and model failure cases.
+
+## Reports
+
+* [Cross-domain EDA](reports/eda/image-domain-statistics.md)
 
 ## Licence
 
