@@ -1,5 +1,5 @@
+from collections.abc import Hashable, Mapping
 from pathlib import Path
-from typing import Hashable, Mapping
 
 from ultrasound_dg.data.adapters.base import DatasetAdapter
 from ultrasound_dg.data.sample import UltrasoundSample

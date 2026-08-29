@@ -8,6 +8,12 @@ from ultrasound_dg.data.adapters.base import DatasetAdapter
 from ultrasound_dg.data.sample import UltrasoundSample
 from ultrasound_dg.data.validation import validate_image_mask_pairing
 
+EXCLUDED_PATIENTS = {
+    "HESN": (
+        "Image dimensions do not match annotation dimensions for all scans of this patient."
+    )
+}
+
 
 def parse_bus_uclm_filename(path: Path) -> tuple[str, str]:
     patient_id, scan_id = path.stem.split("_", maxsplit=1)
@@ -77,6 +83,9 @@ class BusUclmAdapter(DatasetAdapter):
 
         for key in sorted(images_by_key):
             patient_id, scan_id = key
+
+            if patient_id in EXCLUDED_PATIENTS:
+                continue
 
             image_path = images_by_key[key]
             mask_path = masks_by_key[key]
