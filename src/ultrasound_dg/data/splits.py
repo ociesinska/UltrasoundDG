@@ -64,10 +64,10 @@ def create_development_protocol(
     ood_dev = bus_uclm.copy()
     final_test = breast_usg.copy()
 
-    assert len(train) + len(source_val) + len(ood_dev) + len(final_test) == len(manifest)
-    assert set(bus_bra_train["patient_id"]).isdisjoint(
-        set(bus_bra_val["patient_id"])
+    assert len(train) + len(source_val) + len(ood_dev) + len(final_test) == len(
+        manifest
     )
+    assert set(bus_bra_train["patient_id"]).isdisjoint(set(bus_bra_val["patient_id"]))
 
     protocol = {
         "train": train,

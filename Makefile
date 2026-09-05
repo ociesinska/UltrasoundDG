@@ -1,12 +1,20 @@
-.PHONY: format lint format_and_lint sync
+.PHONY: check format lint format_and_lint sync test
 
 sync:
-	uv sync
+	uv sync --extra dev
+
+test:
+	uv run --extra dev pytest
+
+check:
+	uv run --extra dev ruff check .
+	uv run --extra dev ruff format --check .
+	uv run --extra dev pytest
 
 lint:
-	uv run ruff check . --fix
+	uv run --extra dev ruff check . --fix
 
 format:
-	uv run ruff format .
+	uv run --extra dev ruff format .
 
 format_and_lint: lint format
