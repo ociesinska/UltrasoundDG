@@ -1,0 +1,25 @@
+version: development_v1
+
+seed: 42
+
+source_domains:
+  - bus_bra
+  - busi
+
+ood_development_domain:
+  - bus_uclm
+
+final_test_domain:
+  - breast_usg
+
+
+source_validation_fraction: 0.2
+
+splitting:
+  bus_bra:
+    strategy: patient
+    stratify_by: diagnosis
+  
+  busi:
+    strategy: sample
+    stratify_by: diagnosis
