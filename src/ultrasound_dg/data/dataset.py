@@ -1,57 +1,68 @@
 from pathlib import Path
 
-import cv2
 import numpy as np
+import pandas as pd
+import torch
 from torch.utils.data import Dataset
 
-from ultrasound_dg.data.sample import UltrasoundSample
-
-
-def load_image(path: Path) -> np.ndarray:
-    image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
-
-    if image is None:
-        raise ValueError(f"Could not load image: {path}")
-
-    return image
-
-
-def load_mask(path: Path) -> np.ndarray:
-    mask = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
-
-    if mask is None:
-        raise ValueError(f"Could not load mask: {path}")
-
-    mask = (mask > 0).astype(np.uint8)
-
-    return mask
+from ultrasound_dg.data.adapters.base import DatasetAdapter
+from ultrasound_dg.data.image_io import load_rgb_image
+from ultrasound_dg.data.preprocessing import SegmentationPreprocessor
 
 
 class UltrasoundSegmentationDataset(Dataset):
     def __init__(
         self,
-        samples: list[UltrasoundSample],
-        transform=None,  # augmentation/preprocessing logic
+        manifest: pd.DataFrame,
+        project_root: Path,
+        adapters: dict[str, DatasetAdapter],
+        preprocessor: SegmentationPreprocessor,
     ):
-        self.samples = samples
-        self.transform = transform
+        self.manifest = manifest.reset_index(drop=True)
+        self.project_root = project_root
+        self.adapters = adapters
+        self.preprocessor = preprocessor
 
-    def __len__(self):
-        return len(self.samples)
+    def __len__(self) -> int:
+        return len(self.manifest)
 
-    def __getitem__(self, idx):
-        sample = self.samples[idx]
+    def __getitem__(self, idx: int) -> dict:
+        row = self.manifest.iloc[idx]
 
-        image = load_image(sample.image_path)
+        image_path = self.project_root / row["image_path"]
+        image = load_rgb_image(image_path)
 
-        if sample.mask_path is None:
-            mask = np.zeros_like(image, dtype=np.uint8)
+        if pd.isna(row["mask_path"]):
+            # Some normal cases do not provide a mask file.
+            # Empty mask represents background-only ground truth.
+            mask = np.zeros(
+                image.shape[:2],
+                dtype=np.uint8,
+            )
+
         else:
-            mask = load_mask(sample.mask_path)
+            mask_path = self.project_root / row["mask_path"]
+            adapter = self.adapters[row["source_domain"]]
+            mask = adapter.decode_mask(mask_path)
 
-        if self.transform is not None:
-            transformed = self.transform(image=image, mask=mask)
-            image = transformed["image"]
-            mask = transformed["mask"]
+        processed = self.preprocessor(image=image, mask=mask)
+        image = processed["image"]
+        mask = processed["mask"]
 
-        return {"image": image, "mask": mask}
+        image = torch.from_numpy(image).unsqueeze(0)
+        mask = torch.from_numpy(mask).unsqueeze(0)
+
+        return {
+            "image": image,
+            "mask": mask,
+            "sample_id": row["sample_id"],
+            "source_domain": row["source_domain"],
+        }
+
+
+# dostaje wiersze manifestu,
+# ładuje raw image,
+# ładuje mask przez odpowiedni adapter/decoder,
+# dla normalnego przypadku bez mask file tworzy zero mask,
+# stosuje wspólny preprocessing,
+# zwraca tensors.
