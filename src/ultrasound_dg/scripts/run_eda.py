@@ -2,11 +2,14 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
+from ultrasound_dg.configs.config_loader import load_config
+from ultrasound_dg.configs.config_schemas import SegmentationPreprocessingConfig
 from ultrasound_dg.data.adapters.breast_usg import BreastUSGAdapter
 from ultrasound_dg.data.adapters.bus_bra import BusBraAdapter
 from ultrasound_dg.data.adapters.bus_uclm import BusUclmAdapter
 from ultrasound_dg.data.adapters.busi import BusiAdapter
 from ultrasound_dg.data.prepare import load_manifest
+from ultrasound_dg.data.preprocessing import SegmentationPreprocessor
 from ultrasound_dg.eda.image_stats import (
     compute_image_stats,
     doppler_stats_summary,
@@ -14,6 +17,7 @@ from ultrasound_dg.eda.image_stats import (
 )
 from ultrasound_dg.eda.inspection import (
     display_inspection_cases,
+    plot_preprocessing_v1_examples,
     prepare_inspection_table,
     save_qualitative_report_figures,
     select_inspection_cases,
@@ -32,11 +36,18 @@ from ultrasound_dg.eda.visualization import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
+PREPROCESSING_CONFIG_PATH = (
+    PROJECT_ROOT / "src" / "ultrasound_dg" / "configs" / "preprocessing" / "v1.yaml"
+)
+
 DATA_ROOT = PROJECT_ROOT / "data" / "raw"
 MANIFEST_PATH = PROJECT_ROOT / "data" / "manifests" / "all_samples.csv"
 EDA_OUTPUT = PROJECT_ROOT / "outputs" / "eda"
 FIGURES_OUTPUT = EDA_OUTPUT / "figures"
 REPORT_FIGURES_OUTPUT = PROJECT_ROOT / "reports" / "eda" / "figures"
+PREPROCESSING_REPORT_FIGURES_OUTPUT = (
+    PROJECT_ROOT / "reports" / "preprocessing" / "figures"
+)
 
 
 def main() -> None:
@@ -142,6 +153,25 @@ def main() -> None:
         image_stats=image_stats,
         mask_stats=mask_stats,
     )
+
+    preprocessing_config = load_config(
+        PREPROCESSING_CONFIG_PATH,
+        SegmentationPreprocessingConfig,
+    )
+
+    preprocessor = SegmentationPreprocessor(config=preprocessing_config)
+
+    preprocessing_figure = plot_preprocessing_v1_examples(
+        inspection_table=inspection_table,
+        project_root=PROJECT_ROOT,
+        adapters=adapters,
+        preprocessor=preprocessor,
+        output_path=(
+            PREPROCESSING_REPORT_FIGURES_OUTPUT / "preprocessing-v1-examples.png"
+        ),
+    )
+
+    plt.close(preprocessing_figure)
 
     save_qualitative_report_figures(
         inspection_table=inspection_table,

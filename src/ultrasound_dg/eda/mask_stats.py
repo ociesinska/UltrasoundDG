@@ -6,7 +6,7 @@ import pandas as pd
 from scipy.ndimage import label
 
 from ultrasound_dg.data.adapters.base import DatasetAdapter
-from ultrasound_dg.data.dataset import load_image
+from ultrasound_dg.data.image_io import load_rgb_image
 
 # Count connected lesion regions using 8-connectivity: pixels touching horizontally, vertically, or diagonally
 # are treated as part of the same component.
@@ -25,7 +25,7 @@ def compute_mask_stats(
 
         if pd.isna(row["mask_path"]):
             image_path = project_root / Path(row["image_path"])
-            image = load_image(image_path)
+            image = load_rgb_image(image_path)
 
             mask = np.zeros(
                 image.shape[:2],

@@ -5,9 +5,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.figure import Figure
-from PIL import Image
 
 from ultrasound_dg.data.adapters.base import DatasetAdapter
+from ultrasound_dg.data.image_io import load_rgb_image
+from ultrasound_dg.data.preprocessing import (
+    SegmentationPreprocessor,
+    to_grayscale,
+)
 from ultrasound_dg.eda.visualization import DOMAIN_LABELS, DOMAIN_ORDER
 
 
@@ -37,9 +41,7 @@ def _load_image_and_mask(
     adapters: Mapping[str, DatasetAdapter],
 ) -> tuple[np.ndarray, np.ndarray]:
     image_path = project_root / Path(row["image_path"])
-
-    with Image.open(image_path) as pil_image:
-        image = np.array(pil_image.convert("RGB"))
+    image = load_rgb_image(image_path)
 
     if pd.isna(row["mask_path"]):
         mask = np.zeros(image.shape[:2], dtype=np.uint8)
@@ -481,6 +483,148 @@ def _multi_component_figure(
         "Representative multi-component masks",
         fontsize=16,
     )
+    return figure
+
+
+def select_representative_lesion_per_domain(
+    inspection_table: pd.DataFrame,
+) -> pd.DataFrame:
+    selections: list[pd.DataFrame] = []
+    lesion_cases = inspection_table[inspection_table["lesion_fraction"] > 0]
+
+    for source_domain in DOMAIN_ORDER:
+        domain_cases = lesion_cases[lesion_cases["source_domain"] == source_domain]
+
+        if domain_cases.empty:
+            continue
+        median_fraction = domain_cases["lesion_fraction"].median()
+
+        distance_from_median = (domain_cases["lesion_fraction"] - median_fraction).abs()
+
+        selected_index = distance_from_median.idxmin()
+
+        selections.append(domain_cases.loc[[selected_index]])
+
+    if not selections:
+        return inspection_table.iloc[0:0].copy()
+
+    return pd.concat(selections, ignore_index=True)
+
+
+def plot_preprocessing_v1_examples(
+    inspection_table: pd.DataFrame,
+    project_root: Path,
+    adapters: Mapping[str, DatasetAdapter],
+    preprocessor: SegmentationPreprocessor,
+    output_path: Path,
+) -> Figure:
+
+    representative_samples = select_representative_lesion_per_domain(
+        inspection_table=inspection_table
+    )
+
+    if representative_samples.empty:
+        raise ValueError(
+            "No non-empty lesion masks available for preprocessing inspection."
+        )
+
+    figure, axes = plt.subplots(
+        nrows=len(representative_samples),
+        ncols=4,
+        figsize=(14, 3.5 * len(representative_samples)),
+        squeeze=False,
+        constrained_layout=True,
+    )
+
+    column_titles = [
+        "Original RGB",
+        "Grayscale",
+        "Resize + padding",
+        "Processed mask overlay",
+    ]
+
+    for column_index, title in enumerate(column_titles):
+        axes[0, column_index].set_title(title, fontsize=12)
+
+    for row_index, (_, row) in enumerate(representative_samples.iterrows()):
+        original_image, original_mask = _load_image_and_mask(
+            row=row, project_root=project_root, adapters=adapters
+        )
+
+        grayscale_image = to_grayscale(original_image)
+
+        processed = preprocessor(image=original_image, mask=original_mask)
+
+        processed_image = processed["image"]
+        processed_mask = processed["mask"]
+
+        original_ax = axes[row_index, 0]
+        grayscale_ax = axes[row_index, 1]
+        processed_ax = axes[row_index, 2]
+        overlay_ax = axes[row_index, 3]
+
+        original_ax.imshow(original_image)
+
+        grayscale_ax.imshow(grayscale_image, cmap="gray", vmin=0, vmax=255)
+
+        processed_ax.imshow(processed_image, cmap="gray", vmin=0, vmax=1)
+
+        overlay_ax.imshow(
+            processed_image,
+            cmap="gray",
+            vmin=0,
+            vmax=1,
+        )
+
+        if processed_mask.any():
+            visible_mask = np.ma.masked_where(processed_mask == 0, processed_mask)
+
+            overlay_ax.imshow(visible_mask, cmap="autumn", alpha=0.4, vmin=0, vmax=1)
+
+            overlay_ax.contour(
+                processed_mask,
+                levels=[0.5],
+                colors=["lime"],
+                linewidths=1,
+            )
+
+        for ax in axes[row_index]:
+            ax.axis("off")
+
+        source_domain = row["source_domain"]
+
+        original_ax.text(
+            -0.08,
+            0.5,
+            "\n".join(
+                [
+                    DOMAIN_LABELS[source_domain],
+                    str(row["sample_id"]),
+                    f"lesion = {row['lesion_fraction']:.2%}",
+                ]
+            ),
+            transform=original_ax.transAxes,
+            ha="right",
+            va="center",
+            fontsize=9,
+        )
+
+        figure.suptitle(
+            "Preprocessing V1 across source domains",
+            fontsize=16,
+        )
+
+        output_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        figure.savefig(
+            output_path,
+            dpi=180,
+            bbox_inches="tight",
+        )
+
     return figure
 
 

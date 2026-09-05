@@ -13,22 +13,24 @@ This report summarizes the first comparison of the four ultrasound domains in th
 
 | Source domain | Median resolution (W x H) | Median aspect ratio | Unique resolutions | Mean brightness | Mean contrast | Mean p01–p99 range |
 |---|---:|---:|---:|---:|---:|---:|
-| BrEaST | 545 x 537 | 1.047 | 52 | 66.69 | 34.69 | 156.91 |
+| BrEaST | 545 x 537 | 1.047 | 52 | 66.97 | 34.58 | 156.58 |
 | BUS-BRA | 286 x 383 | 0.764 | 713 | 83.10 | 39.62 | 163.09 |
-| BUS-UCLM | 856 x 606 | 1.413 | 1 | 63.96 | 38.39 | 171.94 |
+| BUS-UCLM | 856 x 606 | 1.413 | 1 | 64.67 | 38.38 | 172.08 |
 | Curated BUSI | 512 x 512 | 1.000 | 1 | 83.07 | 51.48 | 199.54 |
 
 Image geometry is strongly domain-specific. BUS-UCLM and Curated BUSI have one fixed resolution, whereas BUS-BRA contains 713 resolutions. A typical BUS-BRA image is portrait-oriented, BUS-UCLM is landscape-oriented, and Curated BUSI is square. BrEaST is close to square at the median but has a wide aspect-ratio range of approximately 0.66 to 3.22.
 
 Brightness differs moderately between domains. BUS-UCLM and BrEaST are darker on average than BUS-BRA and Curated BUSI, although the per-image distributions overlap. BUS-BRA has the largest within-domain brightness variation.
 
-The contrast difference is clearer. Curated BUSI has the highest mean contrast at 51.48, compared with 34.69 for BrEaST. BUS-BRA and BUS-UCLM have similar intermediate values. Curated BUSI also has the widest robust within-image intensity range, measured between its first and 99th intensity percentiles.
+The contrast difference is clearer. Curated BUSI has the highest mean contrast at 51.48, compared with 34.58 for BrEaST. BUS-BRA and BUS-UCLM have similar intermediate values. Curated BUSI also has the widest robust within-image intensity range, measured between its first and 99th intensity percentiles.
 
 These results indicate that **resolution, aspect ratio, brightness, and contrast can all act as domain cues**. Resize and padding rules should therefore be chosen carefully, and training should use consistent intensity normalization.
 
 ### Color and Doppler
 
 BUS-BRA and Curated BUSI are stored as single-channel grayscale images. BrEaST is stored as RGBA and BUS-UCLM as RGB, but the file mode alone does not prove that clinically meaningful color is present.
+
+For consistent image decoding, transparent pixels are composited onto a black background before conversion to RGB. Intensity statistics are then calculated from an explicit grayscale representation, while color-content statistics retain the RGB channels.
 
 BUS-UCLM is the only current domain with an explicit Doppler label in its metadata. It contains 35 Doppler images out of 670, giving a Doppler prevalence of 5.22%. The remaining 635 images (94.78%) are labelled as non-Doppler. Doppler metadata is unavailable for the other three domains.
 
@@ -45,7 +47,7 @@ The strong-color pixel fraction is substantially higher in Doppler images than i
 
 False positives can be caused by colored scanner logos, orientation markers, text, and other overlays. False negatives occur when the Doppler region is small, faint, dark, or affected by compression and does not occupy enough of the full image. The metric can still prioritize candidates for visual inspection, but the metadata-derived value of 5.22% is the appropriate prevalence estimate for BUS-UCLM.
 
-The current training loader converts every image to grayscale. Consequently, the model does not receive the original Doppler color channels, although colored regions can still produce distinctive grayscale intensities. This preprocessing decision should remain explicit and consistent across experiments.
+The preprocessing V1 input pipeline loads every image as RGB, handles transparency on a black background, and then explicitly converts the image to grayscale. Consequently, the model does not receive the original Doppler color channels, although colored regions can still produce distinctive grayscale intensities. This decision must remain consistent across baseline experiments.
 
 ## Lesion-mask characteristics
 
@@ -77,7 +79,7 @@ Patient structure differs substantially between domains:
 
 BUS-UCLM has only 37 patients but 670 images. Its samples are therefore highly dependent, and a sample-level split would cause serious patient leakage. Image-level evaluation can also overweight patients with many scans, because a patient contributing 39 images has substantially more influence on the aggregate metric than a patient contributing three images.
 
-Curated BUSI has no patient identifiers, so patient-level independence cannot currently be verified.
+Reliable patient identifiers are unavailable for Curated BUSI; therefore, its source train/validation partition is performed at the image level. Potential same-patient overlap between these partitions cannot be excluded.
 
 The image-level diagnosis distribution is also domain-specific:
 
@@ -92,6 +94,8 @@ BUS-BRA contains no normal samples, whereas normal images form the majority of B
 
 Under the initial development protocol, BUS-BRA and Curated BUSI together contain only 64 normal images out of 2,325 samples (approximately 2.8%), whereas normal scans account for 61.2% of BUS-UCLM. This creates a substantial lesion-prevalence shift and may lead to increased false-positive segmentation on the unseen BUS-UCLM domain. Evaluation should therefore report performance on normal scans separately rather than relying only on lesion-case Dice scores.
 
+The resulting roles of the source validation split, BUS-UCLM, and the locked BrEaST test domain are defined in the [Development V1 protocol](../experiments/development-v1.md).
+
 Patient-level diagnosis counts require special care. In BUS-UCLM, 32 of 37 patients occur under more than one diagnosis across their scans. Counts of normal, benign, and malignant patients consequently overlap and must not be added together as if they were disjoint groups.
 
 ## Visualization findings
@@ -104,7 +108,7 @@ The patient-structure plot confirms three distinct sampling regimes. BrEaST has 
 
 The lesion-fraction distributions are right-skewed and overlap substantially around their central values. Domain differences are more apparent in the upper tails than in the medians. Curated BUSI has the broadest upper distribution, while BUS-UCLM has the lowest observed maximum. This supports treating lesion scale as a moderate domain shift rather than the dominant difference between the datasets.
 
-The brightness plot shows considerable overlap between domains, with BUS-BRA displaying the widest variation. BUS-UCLM is the most tightly concentrated and, together with BrEaST, is darker than BUS-BRA and Curated BUSI. The contrast plot separates Curated BUSI more clearly: its median contrast is 52.31, compared with 38.70 for BUS-BRA, 37.94 for BUS-UCLM, and 33.27 for BrEaST.
+The brightness plot shows considerable overlap between domains, with BUS-BRA displaying the widest variation. BUS-UCLM is the most tightly concentrated and, together with BrEaST, is darker than BUS-BRA and Curated BUSI. The contrast plot separates Curated BUSI more clearly: its median contrast is 52.31, compared with 38.70 for BUS-BRA, 37.90 for BUS-UCLM, and 32.98 for BrEaST.
 
 ## Qualitative manual inspection
 
@@ -145,9 +149,11 @@ The domains differ at several levels, but the strongest observed shifts are not 
 
 Patient-level splitting is mandatory wherever patient identifiers are available. Preprocessing should preserve anatomy while standardizing input size, and intensity augmentation should cover the observed brightness and contrast variation. Dataset identity may otherwise be learned from geometry, class composition, scanner appearance, or sampling structure instead of clinically relevant lesion features.
 
+These findings motivate the initial preprocessing choices. Their implementation and visual validation are documented separately in the [Preprocessing V1 report](../preprocessing/preprocessing-v1.md).
+
 ## Notes
 
-Brightness and contrast are calculated over the full image. Black backgrounds, borders, text, measurement marks, and scanner overlays can therefore affect the results. These statistics are descriptive and do not test statistical significance.
+Brightness and contrast are calculated over the full grayscale image after alpha compositing but before resize, padding, and intensity normalization. Black backgrounds, borders, text, measurement marks, and scanner overlays can therefore affect the results. These statistics are descriptive and do not test statistical significance.
 
 Thirteen BUS-UCLM images belonging to patient `HESN` are absent from the manifest because their image dimensions do not match their masks or the resolution declared in the metadata.
 

@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 
-from ultrasound_dg.data.dataset import load_image
+from ultrasound_dg.data.image_io import image_to_rgb_array
+from ultrasound_dg.data.preprocessing import to_grayscale
 
 
 def compute_image_stats(
@@ -24,9 +25,9 @@ def compute_image_stats(
             channels = len(image_bands)
             has_alpha = "A" in image_bands
 
-            rgb = np.asarray(image.convert("RGB"))
+            rgb = image_to_rgb_array(image)
 
-        grayscale_image = load_image(image_path)
+        grayscale_image = to_grayscale(rgb)
 
         # RGB mode does not necessarily mean that an ultrasound image contains  meaningful color information, as grayscale images can also be stored
         # using three identical RGB channels.
