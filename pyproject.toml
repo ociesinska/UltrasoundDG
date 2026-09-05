@@ -20,6 +20,7 @@ dependencies = [
     "openpyxl>=3.1",
     "pandas>=2.3",
     "pillow>=12.3.0",
+    "pydantic>=2.13.4",
     "pyyaml>=6.0",
     "scikit-image>=0.24",
     "scikit-learn>=1.6",
@@ -42,3 +43,7 @@ where = ["src"]
 
 [tool.ruff.lint]
 extend-select = ["I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra"]
