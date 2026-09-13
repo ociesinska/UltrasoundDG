@@ -1,0 +1,17 @@
+study_name: baseline_lr_wd_v1
+epochs: 20
+
+learning_rates:
+  - 0.001
+  - 0.0003
+  - 0.0001
+  - 0.00003
+
+weight_decays:
+  - 0.0
+  - 0.00001
+  - 0.0001
+  - 0.001
+
+startup_trials: 4
+warmup_epochs: 5

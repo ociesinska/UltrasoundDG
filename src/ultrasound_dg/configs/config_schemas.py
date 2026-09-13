@@ -30,6 +30,7 @@ class DevelopmentConfig(BaseModel):
 
 class TrainingConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
     seed: int = 42
     device: Literal["auto", "cpu", "cuda", "mps"] = "auto"
     train_batch_size: int = Field(gt=0)
@@ -40,3 +41,14 @@ class TrainingConfig(BaseModel):
     learning_rate: float = Field(gt=0)
     weight_decay: float = Field(ge=0)
     decision_threshold: float = Field(gt=0, lt=1)
+
+
+class TuningConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    study_name: str
+    epochs: int = Field(gt=0)
+    learning_rates: list[float] = Field(min_length=1)
+    weight_decays: list[float] = Field(min_length=1)
+    startup_trials: int = Field(default=4, ge=0)
+    warmup_epochs: int = Field(default=10, ge=0)

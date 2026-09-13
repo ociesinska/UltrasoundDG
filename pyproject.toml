@@ -37,6 +37,9 @@ dev = [
     "pytest",
     "ruff",
 ]
+tuning = [
+    "optuna>=5.0.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
