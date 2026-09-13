@@ -30,8 +30,13 @@ class DevelopmentConfig(BaseModel):
 
 class TrainingConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
+    seed: int = 42
+    device: Literal["auto", "cpu", "cuda", "mps"] = "auto"
     train_batch_size: int = Field(gt=0)
     eval_batch_size: int = Field(gt=0)
     epochs: int = Field(gt=0)
     num_workers: int = Field(default=0, ge=0)
+    optimizer: Literal["Adam", "AdamW"] = "AdamW"
+    learning_rate: float = Field(gt=0)
+    weight_decay: float = Field(ge=0)
+    decision_threshold: float = Field(gt=0, lt=1)
