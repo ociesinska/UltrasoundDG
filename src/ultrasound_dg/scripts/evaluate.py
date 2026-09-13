@@ -1,4 +1,5 @@
 from pathlib import Path
+from statistics import fmean
 
 from torch.utils.data import DataLoader
 
@@ -14,6 +15,7 @@ from ultrasound_dg.data.adapters.bus_bra import BusBraAdapter
 from ultrasound_dg.data.adapters.bus_uclm import BusUclmAdapter
 from ultrasound_dg.data.adapters.busi import BusiAdapter
 from ultrasound_dg.data.dataset import UltrasoundSegmentationDataset
+from ultrasound_dg.data.domain_loaders import create_domain_loaders
 from ultrasound_dg.data.prepare import load_manifest
 from ultrasound_dg.data.preprocessing import SegmentationPreprocessor
 from ultrasound_dg.data.splits import create_development_protocol
@@ -76,6 +78,16 @@ def main() -> None:
     )
     preprocessor = SegmentationPreprocessor(config=preprocessing_config)
 
+    source_val_domain_loaders = create_domain_loaders(
+        manifest=protocol["source_val"],
+        domains=development_config.source_domains,
+        project_root=PROJECT_ROOT,
+        adapters=adapters,
+        preprocessor=preprocessor,
+        batch_size=training_config.eval_batch_size,
+        num_workers=training_config.num_workers,
+    )
+
     source_val_dataset = UltrasoundSegmentationDataset(
         manifest=protocol["source_val"],
         project_root=PROJECT_ROOT,
@@ -125,6 +137,21 @@ def main() -> None:
         threshold=training_config.decision_threshold,
     )
 
+    source_domain_metrics = {
+        domain: evaluate_loader(
+            model=model,
+            loader=loader,
+            loss_fn=loss_fn,
+            device=device,
+            threshold=training_config.decision_threshold,
+        )
+        for domain, loader in source_val_domain_loaders.items()
+    }
+
+    macro_source_lesion_dice = fmean(
+        metrics["lesion_dice"] for metrics in source_domain_metrics.values()
+    )
+
     print(f"Loaded checkpoint from epoch {checkpoint['epoch']}")
     print_metrics(
         split_name="Source validation",
@@ -134,6 +161,14 @@ def main() -> None:
         split_name="OOD development — BUS-UCLM",
         metrics=ood_metrics,
     )
+
+    for domain, metrics in source_domain_metrics.items():
+        print_metrics(
+            split_name=f"Source validation — {domain}",
+            metrics=metrics,
+        )
+
+    print(f"\nMacro source lesion Dice: {macro_source_lesion_dice:.4f}")
 
 
 if __name__ == "__main__":
