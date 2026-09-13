@@ -43,12 +43,16 @@ def test_dataset_returns_model_ready_tensors(tmp_path: Path) -> None:
                 "source_domain": "test",
                 "image_path": image_path.name,
                 "mask_path": mask_path.name,
+                "diagnosis": "benign",
+                "has_lesion": True,
             },
             {
                 "sample_id": "test_normal",
                 "source_domain": "test",
                 "image_path": image_path.name,
                 "mask_path": None,
+                "diagnosis": "normal",
+                "has_lesion": False,
             },
         ]
     )
@@ -65,13 +69,17 @@ def test_dataset_returns_model_ready_tensors(tmp_path: Path) -> None:
     lesion_sample = dataset[0]
     normal_sample = dataset[1]
 
-    assert lesion_sample["image"].shape == (1, 8, 8)
+    assert lesion_sample["image"].shape == (3, 8, 8)
     assert lesion_sample["mask"].shape == (1, 8, 8)
     assert lesion_sample["image"].dtype == torch.float32
     assert lesion_sample["mask"].dtype == torch.float32
-    assert 0.0 <= lesion_sample["image"].min() <= lesion_sample["image"].max() <= 1.0
+    assert torch.isfinite(lesion_sample["image"]).all()
     assert set(torch.unique(lesion_sample["mask"]).tolist()) <= {0.0, 1.0}
     assert lesion_sample["mask"].any()
     assert not normal_sample["mask"].any()
     assert lesion_sample["sample_id"] == "test_lesion"
     assert lesion_sample["source_domain"] == "test"
+    assert lesion_sample["diagnosis"] == "benign"
+    assert lesion_sample["has_lesion"] is True
+    assert normal_sample["diagnosis"] == "normal"
+    assert normal_sample["has_lesion"] is False

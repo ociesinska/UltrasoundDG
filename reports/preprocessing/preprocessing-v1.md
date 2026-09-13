@@ -8,17 +8,21 @@ For every sample, the pipeline:
 2. converts the image to grayscale;
 3. resizes the image and mask while preserving their aspect ratio;
 4. applies symmetric zero padding to obtain a 256 x 256 input;
-5. scales image intensities from `[0, 255]` to `[0, 1]`.
+5. scales image intensities from `[0, 255]` to `[0, 1]`;
+6. replicates the grayscale image into three input channels;
+7. applies channel-wise ImageNet normalization for the pretrained ResNet34 encoder.
 
-The image uses bilinear interpolation, while the mask uses nearest-neighbor interpolation so that its labels remain discrete. Masks are kept binary and are not divided by 255.
+The resulting model input has shape `3 x 256 x 256`. The image uses bilinear interpolation, while the mask uses nearest-neighbor interpolation so that its labels remain discrete. Masks are kept binary, have shape `1 x 256 x 256`, and are not divided by 255.
+
+ImageNet normalization is used for compatibility with the pretrained ResNet34 encoder, not because the ImageNet channel statistics are assumed to characterize breast ultrasound data. The grayscale image is replicated across three channels solely to match the encoder input expected by its pretrained weights.
 
 ## Visual check
 
-The figure below shows one representative lesion sample from each domain. Each row contains the original image, its grayscale representation, the resized and padded model input, and the processed mask overlaid on that input.
+The figure below shows one representative lesion sample from each domain. Each row contains the original image, its grayscale representation, the resized and padded model input, and the processed mask overlaid on that input. The normalized model tensor is converted back to display intensities only for this visualization; training continues to use the ImageNet-normalized values.
 
 ![Preprocessing V1 across source domains](figures/preprocessing-v1-examples.png)
 
-*Figure 1. Preprocessing V1 applied to representative samples from all four domains. Aspect ratio is preserved, padding is added only along the shorter spatial dimension, and masks remain aligned with the corresponding image structures.*
+*Figure 1. Preprocessing V1 applied to representative samples from all four domains. Aspect ratio is preserved, padding is added only along the shorter spatial dimension, and masks remain aligned with the corresponding image structures. ImageNet normalization is reversed only for display.*
 
 The check confirms that the same spatial transformation is applied consistently across domains without visibly stretching the anatomy. The processed masks remain aligned with the lesions, including after padding. Black padding is intentionally used as the initial baseline because it matches the background already present in many ultrasound exports.
 

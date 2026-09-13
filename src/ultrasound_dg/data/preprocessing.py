@@ -7,6 +7,9 @@ from ultrasound_dg.configs.config_schemas import (
     SegmentationPreprocessingConfig,
 )
 
+IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+
 
 def to_grayscale(image: np.ndarray) -> np.ndarray:
     if image.ndim == 2:
@@ -16,6 +19,14 @@ def to_grayscale(image: np.ndarray) -> np.ndarray:
         Image.fromarray(image).convert("L"),
         dtype=np.uint8,
     )
+
+
+def normalize_imagenet(image: np.ndarray) -> np.ndarray:
+    return (image - IMAGENET_MEAN) / IMAGENET_STD
+
+
+def denormalize_imagenet(image: np.ndarray) -> np.ndarray:
+    return np.clip(image * IMAGENET_STD + IMAGENET_MEAN, 0.0, 1.0)
 
 
 @dataclass
@@ -28,6 +39,8 @@ class SegmentationPreprocessor:
 
         image, mask = self._resize_and_pad(image, mask)
         image = image.astype(np.float32) / 255.0
+        image = np.repeat(image[..., None], repeats=3, axis=-1)
+        image = normalize_imagenet(image)
         mask = mask.astype(np.float32)
 
         return {

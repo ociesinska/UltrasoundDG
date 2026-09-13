@@ -49,7 +49,7 @@ class UltrasoundSegmentationDataset(Dataset):
         image = processed["image"]
         mask = processed["mask"]
 
-        image = torch.from_numpy(image).unsqueeze(0)
+        image = torch.from_numpy(image).permute(2, 0, 1).contiguous()
         mask = torch.from_numpy(mask).unsqueeze(0)
 
         return {
@@ -57,12 +57,6 @@ class UltrasoundSegmentationDataset(Dataset):
             "mask": mask,
             "sample_id": row["sample_id"],
             "source_domain": row["source_domain"],
+            "diagnosis": row["diagnosis"],
+            "has_lesion": bool(row["has_lesion"]),
         }
-
-
-# dostaje wiersze manifestu,
-# ładuje raw image,
-# ładuje mask przez odpowiedni adapter/decoder,
-# dla normalnego przypadku bez mask file tworzy zero mask,
-# stosuje wspólny preprocessing,
-# zwraca tensors.

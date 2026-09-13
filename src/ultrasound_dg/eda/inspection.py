@@ -10,6 +10,7 @@ from ultrasound_dg.data.adapters.base import DatasetAdapter
 from ultrasound_dg.data.image_io import load_rgb_image
 from ultrasound_dg.data.preprocessing import (
     SegmentationPreprocessor,
+    denormalize_imagenet,
     to_grayscale,
 )
 from ultrasound_dg.eda.visualization import DOMAIN_LABELS, DOMAIN_ORDER
@@ -557,6 +558,7 @@ def plot_preprocessing_v1_examples(
 
         processed_image = processed["image"]
         processed_mask = processed["mask"]
+        display_image = denormalize_imagenet(processed_image)
 
         original_ax = axes[row_index, 0]
         grayscale_ax = axes[row_index, 1]
@@ -567,14 +569,9 @@ def plot_preprocessing_v1_examples(
 
         grayscale_ax.imshow(grayscale_image, cmap="gray", vmin=0, vmax=255)
 
-        processed_ax.imshow(processed_image, cmap="gray", vmin=0, vmax=1)
+        processed_ax.imshow(display_image)
 
-        overlay_ax.imshow(
-            processed_image,
-            cmap="gray",
-            vmin=0,
-            vmax=1,
-        )
+        overlay_ax.imshow(display_image)
 
         if processed_mask.any():
             visible_mask = np.ma.masked_where(processed_mask == 0, processed_mask)
