@@ -1,3 +1,5 @@
+import logging
+
 import optuna
 import torch
 from torch.utils.data import DataLoader
@@ -18,6 +20,8 @@ from ultrasound_dg.training.losses import BCEDiceLoss
 from ultrasound_dg.training.optimizers import create_optimizer
 from ultrasound_dg.training.reproducibility import set_random_seed
 from ultrasound_dg.training.train import train_one_epoch
+
+logger = logging.getLogger(__name__)
 
 
 def run_baseline_tuning_trial(
@@ -105,12 +109,15 @@ def run_baseline_tuning_trial(
 
         trial.report(macro_source_val_lesion_dice, step=epoch)
 
-        print(
-            f"Trial {trial.number} | "
-            f"epoch={epoch + 1} | "
-            f"train_loss={train_loss:.4f} | "
-            f"macro_lesion_dice={macro_source_val_lesion_dice:.4f} | "
-            f"worst_domain_dice={worst_domain_dice:.4f}"
+        logger.info(
+            "Trial %d | epoch=%d/%d | train_loss=%.4f | "
+            "macro_lesion_dice=%.4f | worst_domain_dice=%.4f",
+            trial.number,
+            epoch + 1,
+            trial_config.epochs,
+            train_loss,
+            macro_source_val_lesion_dice,
+            worst_domain_dice,
         )
 
         if trial.should_prune():

@@ -1,3 +1,4 @@
+import logging
 from functools import partial
 from pathlib import Path
 
@@ -24,10 +25,13 @@ from ultrasound_dg.data.preprocessing import SegmentationPreprocessor
 from ultrasound_dg.data.splits import create_development_protocol
 from ultrasound_dg.training.tuning import run_baseline_tuning_trial
 from ultrasound_dg.utils.device import resolve_device
+from ultrasound_dg.utils.logger import format_logger
 from ultrasound_dg.utils.mlflow import (
     log_config,
     setup_mlflow,
 )
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = PROJECT_ROOT / "data" / "manifests" / "all_samples.csv"
@@ -44,6 +48,7 @@ MLFLOW_TRACKING_URI = "http://127.0.0.1:8080"
 
 
 def main() -> None:
+    format_logger()
 
     base_training_config = load_config(
         TRAINING_CONFIG_PATH,
@@ -164,12 +169,15 @@ def main() -> None:
         results_path = TUNING_OUTPUT_DIR / f"{tuning_config.study_name}.csv"
 
         study.trials_dataframe().to_csv(results_path, index=False)
-        print("\nBest trial")
-        print(f"  number: {study.best_trial.number}")
-        print(f"  macro lesion Dice: {study.best_value:.4f}")
-        print(f"  parameters: {study.best_params}")
-        print(f"  metadata: {study.best_trial.user_attrs}")
-        print(f"  results saved to: {results_path}")
+        logger.info(
+            "Best trial | number=%d | macro_lesion_dice=%.4f | "
+            "parameters=%s | metadata=%s",
+            study.best_trial.number,
+            study.best_value,
+            study.best_params,
+            study.best_trial.user_attrs,
+        )
+        logger.info("Tuning results saved to %s", results_path)
 
         mlflow.log_param("best_trial_number", study.best_trial.number)
         mlflow.log_metric("best_macro_lesion_dice", float(study.best_value))
@@ -209,7 +217,7 @@ def main() -> None:
                 sort_keys=False,
             )
 
-        print(f"Best training config saved to: {best_config_path}")
+        logger.info("Best training config saved to %s", best_config_path)
         mlflow.log_artifact(str(best_config_path), artifact_path="tuning")
 
 

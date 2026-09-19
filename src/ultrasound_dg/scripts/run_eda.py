@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -33,6 +34,9 @@ from ultrasound_dg.eda.visualization import (
     plot_images_per_patient,
     plot_lesion_fraction,
 )
+from ultrasound_dg.utils.logger import format_logger
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
@@ -51,6 +55,9 @@ PREPROCESSING_REPORT_FIGURES_OUTPUT = (
 
 
 def main() -> None:
+    format_logger()
+    logger.info("Running exploratory data analysis...")
+
     EDA_OUTPUT.mkdir(parents=True, exist_ok=True)
 
     manifest = load_manifest(MANIFEST_PATH)
@@ -195,6 +202,8 @@ def main() -> None:
 
     for figure in inspection_figures:
         plt.close(figure)
+
+    logger.info("EDA outputs saved to %s", EDA_OUTPUT)
 
 
 if __name__ == "__main__":

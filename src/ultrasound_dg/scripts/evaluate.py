@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from statistics import fmean
 
@@ -24,6 +25,9 @@ from ultrasound_dg.training.checkpoints import load_checkpoint
 from ultrasound_dg.training.evaluation import evaluate_loader
 from ultrasound_dg.training.losses import BCEDiceLoss
 from ultrasound_dg.utils.device import resolve_device
+from ultrasound_dg.utils.logger import format_logger
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = PROJECT_ROOT / "data" / "manifests" / "all_samples.csv"
@@ -52,6 +56,8 @@ def print_metrics(
 
 
 def main() -> None:
+    format_logger()
+
     training_config = load_config(TRAINING_CONFIG_PATH, TrainingConfig)
     preprocessing_config = load_config(
         PREPROCESSING_CONFIG_PATH,
@@ -152,7 +158,7 @@ def main() -> None:
         metrics["lesion_dice"] for metrics in source_domain_metrics.values()
     )
 
-    print(f"Loaded checkpoint from epoch {checkpoint['epoch']}")
+    logger.info("Loaded checkpoint from epoch %d", checkpoint["epoch"])
     print_metrics(
         split_name="Source validation",
         metrics=source_val_metrics,

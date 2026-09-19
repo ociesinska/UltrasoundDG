@@ -39,6 +39,7 @@ from ultrasound_dg.training.optimizers import create_optimizer
 from ultrasound_dg.training.reproducibility import set_random_seed
 from ultrasound_dg.training.train import train_one_epoch
 from ultrasound_dg.utils.device import resolve_device
+from ultrasound_dg.utils.logger import format_logger
 from ultrasound_dg.utils.mlflow import (
     log_config,
     setup_mlflow,
@@ -58,6 +59,7 @@ MLFLOW_TRACKING_URI = "http://127.0.0.1:8080"
 
 
 def main() -> None:
+    format_logger()
 
     parser = argparse.ArgumentParser(
         description="Train a breast ultrasound segmentation baseline."
@@ -186,6 +188,12 @@ def main() -> None:
 
         best_macro_source_val_lesion_dice = float("-inf")
         for epoch in range(training_config.epochs):
+            logger.info(
+                "Starting epoch %d/%d",
+                epoch + 1,
+                training_config.epochs,
+            )
+
             train_loss = train_one_epoch(
                 model=model,
                 loader=train_loader,
