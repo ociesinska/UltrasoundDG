@@ -1,7 +1,9 @@
 from functools import partial
 from pathlib import Path
 
+import mlflow
 import optuna
+import yaml
 
 from ultrasound_dg.configs.config_loader import load_config
 from ultrasound_dg.configs.config_schemas import (
@@ -20,8 +22,12 @@ from ultrasound_dg.data.domain_loaders import create_domain_loaders
 from ultrasound_dg.data.prepare import load_manifest
 from ultrasound_dg.data.preprocessing import SegmentationPreprocessor
 from ultrasound_dg.data.splits import create_development_protocol
-from ultrasound_dg.training.device import resolve_device
 from ultrasound_dg.training.tuning import run_baseline_tuning_trial
+from ultrasound_dg.utils.device import resolve_device
+from ultrasound_dg.utils.mlflow import (
+    log_config,
+    setup_mlflow,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = PROJECT_ROOT / "data" / "manifests" / "all_samples.csv"
@@ -34,6 +40,7 @@ TRAINING_CONFIG_PATH = CONFIG_ROOT / "training" / "baseline_v1.yaml"
 TUNING_CONFIG_PATH = CONFIG_ROOT / "tuning" / "baseline_v1.yaml"
 
 TUNING_OUTPUT_DIR = PROJECT_ROOT / "outputs" / "tuning"
+MLFLOW_TRACKING_URI = "http://127.0.0.1:8080"
 
 
 def main() -> None:
@@ -92,6 +99,12 @@ def main() -> None:
 
     device = resolve_device(base_training_config.device)
 
+    setup_mlflow(
+        tracking_uri=MLFLOW_TRACKING_URI,
+        experiment_name=tuning_config.mlflow_experiment_name,
+        set_experiment=True,
+    )
+
     TUNING_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     search_space = {
@@ -111,7 +124,7 @@ def main() -> None:
 
     objective = partial(
         run_baseline_tuning_trial,
-        training_config=base_training_config,
+        base_training_config=base_training_config,
         tuning_config=tuning_config,
         train_dataset=train_dataset,
         source_val_domain_loaders=source_val_domain_loaders,
@@ -134,23 +147,70 @@ def main() -> None:
         tuning_config.weight_decays
     )
 
-    study.optimize(
-        objective,
-        n_trials=number_of_combinations,
-        n_jobs=1,
-        gc_after_trial=True,
-        show_progress_bar=True,
-    )
+    with mlflow.start_run(run_name=f"{tuning_config.study_name}"):
+        log_config(development_config, "development_config")
+        log_config(preprocessing_config, "preprocessing_config")
+        log_config(base_training_config, "base_training_config")
+        log_config(tuning_config, "tuning_config")
 
-    results_path = TUNING_OUTPUT_DIR / f"{tuning_config.study_name}.csv"
+        study.optimize(
+            objective,
+            n_trials=number_of_combinations,
+            n_jobs=1,
+            gc_after_trial=True,
+            show_progress_bar=True,
+        )
 
-    study.trials_dataframe().to_csv(results_path, index=False)
-    print("\nBest trial")
-    print(f"  number: {study.best_trial.number}")
-    print(f"  macro lesion Dice: {study.best_value:.4f}")
-    print(f"  parameters: {study.best_params}")
-    print(f"  metadata: {study.best_trial.user_attrs}")
-    print(f"  results saved to: {results_path}")
+        results_path = TUNING_OUTPUT_DIR / f"{tuning_config.study_name}.csv"
+
+        study.trials_dataframe().to_csv(results_path, index=False)
+        print("\nBest trial")
+        print(f"  number: {study.best_trial.number}")
+        print(f"  macro lesion Dice: {study.best_value:.4f}")
+        print(f"  parameters: {study.best_params}")
+        print(f"  metadata: {study.best_trial.user_attrs}")
+        print(f"  results saved to: {results_path}")
+
+        mlflow.log_param("best_trial_number", study.best_trial.number)
+        mlflow.log_metric("best_macro_lesion_dice", float(study.best_value))
+
+        mlflow.log_dict(
+            study.best_params,
+            "best_parameters.json",
+        )
+
+        mlflow.log_dict(
+            study.best_trial.user_attrs,
+            "best_trial_metadata.json",
+        )
+
+        mlflow.log_artifact(
+            str(results_path),
+            artifact_path="tuning",
+        )
+
+        best_training_config = TrainingConfig.model_validate(
+            {
+                **base_training_config.model_dump(),
+                **study.best_params,
+                "epochs": tuning_config.epochs,
+                "mlflow_experiment_name": "baseline_tuned_v1",
+            }
+        )
+
+        best_config_path = (
+            TUNING_OUTPUT_DIR / f"{tuning_config.study_name}_best_training_config.yaml"
+        )
+
+        with best_config_path.open("w") as file:
+            yaml.safe_dump(
+                best_training_config.model_dump(mode="json"),
+                file,
+                sort_keys=False,
+            )
+
+        print(f"Best training config saved to: {best_config_path}")
+        mlflow.log_artifact(str(best_config_path), artifact_path="tuning")
 
 
 if __name__ == "__main__":

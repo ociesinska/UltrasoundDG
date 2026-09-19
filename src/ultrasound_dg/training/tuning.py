@@ -1,5 +1,3 @@
-from statistics import fmean
-
 import optuna
 import torch
 from torch.utils.data import DataLoader
@@ -12,7 +10,10 @@ from ultrasound_dg.data.dataset import (
     UltrasoundSegmentationDataset,
 )
 from ultrasound_dg.models.unet import create_unet
-from ultrasound_dg.training.evaluation import evaluate_loader
+from ultrasound_dg.training.evaluation import (
+    evaluate_loader,
+    macro_average_domain_metric,
+)
 from ultrasound_dg.training.losses import BCEDiceLoss
 from ultrasound_dg.training.optimizers import create_optimizer
 from ultrasound_dg.training.reproducibility import set_random_seed
@@ -21,7 +22,7 @@ from ultrasound_dg.training.train import train_one_epoch
 
 def run_baseline_tuning_trial(
     trial: optuna.Trial,
-    training_config: TrainingConfig,
+    base_training_config: TrainingConfig,
     tuning_config: TuningConfig,
     train_dataset: UltrasoundSegmentationDataset,
     source_val_domain_loaders: dict[str, DataLoader],
@@ -40,7 +41,7 @@ def run_baseline_tuning_trial(
 
     trial_config = TrainingConfig.model_validate(
         {
-            **training_config.model_dump(),
+            **base_training_config.model_dump(),
             "learning_rate": learning_rate,
             "weight_decay": weight_decay,
             "epochs": tuning_config.epochs,
@@ -88,8 +89,9 @@ def run_baseline_tuning_trial(
             for domain, loader in source_val_domain_loaders.items()
         }
 
-        macro_source_val_lesion_dice = fmean(
-            metrics["lesion_dice"] for metrics in source_val_metrics_by_domain.values()
+        macro_source_val_lesion_dice = macro_average_domain_metric(
+            source_val_metrics_by_domain,
+            metric_name="lesion_dice",
         )
 
         worst_domain_dice = min(

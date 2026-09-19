@@ -21,9 +21,9 @@ from ultrasound_dg.data.preprocessing import SegmentationPreprocessor
 from ultrasound_dg.data.splits import create_development_protocol
 from ultrasound_dg.models.unet import create_unet
 from ultrasound_dg.training.checkpoints import load_checkpoint
-from ultrasound_dg.training.device import resolve_device
 from ultrasound_dg.training.evaluation import evaluate_loader
 from ultrasound_dg.training.losses import BCEDiceLoss
+from ultrasound_dg.utils.device import resolve_device
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = PROJECT_ROOT / "data" / "manifests" / "all_samples.csv"

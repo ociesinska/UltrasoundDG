@@ -1,3 +1,7 @@
+import math
+from collections.abc import Mapping
+from statistics import fmean
+
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -145,3 +149,28 @@ def evaluate_loader(
         "normal_fp_fraction": mean_normal_fp_fraction,
         "normal_fp_image_rate": normal_fp_image_rate,
     }
+
+
+def macro_average_domain_metric(
+    metrics_by_domain: Mapping[str, Mapping[str, float]],
+    metric_name: str,
+) -> float:
+    if not metrics_by_domain:
+        raise ValueError("Cannot calculate a macro average without domains.")
+
+    values = []
+
+    for domain, metrics in metrics_by_domain.items():
+        if metric_name not in metrics:
+            raise KeyError(f"Metric {metric_name!r} is missing for domain {domain!r}.")
+
+        value = metrics[metric_name]
+
+        if not math.isfinite(value):
+            raise ValueError(
+                f"Metric {metric_name!r} is not finite for domain {domain!r}: {value}"
+            )
+
+        values.append(value)
+
+    return fmean(values)
