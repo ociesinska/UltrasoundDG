@@ -32,6 +32,7 @@ class TrainingConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     seed: int = 42
+    mlflow_experiment_name: str
     device: Literal["auto", "cpu", "cuda", "mps"] = "auto"
     train_batch_size: int = Field(gt=0)
     eval_batch_size: int = Field(gt=0)
@@ -47,6 +48,7 @@ class TuningConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     study_name: str
+    mlflow_experiment_name: str
     epochs: int = Field(gt=0)
     learning_rates: list[float] = Field(min_length=1)
     weight_decays: list[float] = Field(min_length=1)

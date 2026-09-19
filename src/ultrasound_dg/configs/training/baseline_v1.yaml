@@ -1,4 +1,5 @@
 seed: 42
+mlflow_experiment_name: baseline_v1
 device: auto
 train_batch_size: 16
 eval_batch_size: 16

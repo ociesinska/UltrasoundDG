@@ -1,4 +1,5 @@
 study_name: baseline_lr_wd_v1
+mlflow_experiment_name: baseline_lr_wd_v1
 epochs: 20
 
 learning_rates:

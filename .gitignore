@@ -19,4 +19,9 @@ outputs/
 *.pth
 *.pt
 
+mlruns/
+artifacts/
+mlflow.db
+
+
 tools

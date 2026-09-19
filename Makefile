@@ -18,3 +18,12 @@ format:
 	uv run --extra dev ruff format .
 
 format_and_lint: lint format
+
+.PHONY: mlflow
+mlflow:
+	mkdir -p artifacts/mlflow/artifacts
+	uv run mlflow ui \
+		--backend-store-uri sqlite:///artifacts/mlflow/mlflow.db \
+		--artifacts-destination ./artifacts/mlflow/artifacts \
+		--serve-artifacts \
+		--port 8080
