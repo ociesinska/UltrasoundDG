@@ -1,6 +1,6 @@
 study_name: baseline_lr_wd_v1
 mlflow_experiment_name: baseline_lr_wd_v1
-epochs: 20
+epochs: 40
 
 learning_rates:
   - 0.001
@@ -15,4 +15,4 @@ weight_decays:
   - 0.001
 
 startup_trials: 4
-warmup_epochs: 5
+warmup_epochs: 10
