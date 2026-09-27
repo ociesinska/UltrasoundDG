@@ -19,11 +19,11 @@ class SplitConfig(BaseModel):
 class DevelopmentConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    version: str
     seed: int
     source_domains: list[str]
     ood_development_domain: list[str]
     final_test_domain: list[str]
+    excluded_domains: list[str] = Field(default_factory=list)
     source_validation_fraction: float = Field(gt=0, lt=1)
     splitting: dict[str, SplitConfig]
 
@@ -32,7 +32,6 @@ class TrainingConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     seed: int = 42
-    mlflow_experiment_name: str
     device: Literal["auto", "cpu", "cuda", "mps"] = "auto"
     train_batch_size: int = Field(gt=0)
     eval_batch_size: int = Field(gt=0)
@@ -54,3 +53,12 @@ class TuningConfig(BaseModel):
     weight_decays: list[float] = Field(min_length=1)
     startup_trials: int = Field(default=4, ge=0)
     warmup_epochs: int = Field(default=10, ge=0)
+
+
+class ExperimentConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    development: DevelopmentConfig
+    preprocessing: SegmentationPreprocessingConfig
+    training: TrainingConfig

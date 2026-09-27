@@ -1,5 +1,7 @@
+import argparse
 import logging
 from functools import partial
+from pathlib import Path
 
 import mlflow
 import optuna
@@ -7,8 +9,7 @@ import yaml
 
 from ultrasound_dg.configs.config_loader import load_config
 from ultrasound_dg.configs.config_schemas import (
-    DevelopmentConfig,
-    SegmentationPreprocessingConfig,
+    ExperimentConfig,
     TrainingConfig,
     TuningConfig,
 )
@@ -23,8 +24,7 @@ from ultrasound_dg.data.prepare import load_manifest
 from ultrasound_dg.data.preprocessing import SegmentationPreprocessor
 from ultrasound_dg.data.splits import create_development_protocol
 from ultrasound_dg.paths import (
-    CONFIG_ROOT,
-    MANIFEST_ROOT,
+    MANIFEST_PATH,
     PROJECT_ROOT,
     RAW_DATA_ROOT,
     TUNING_OUTPUT_ROOT,
@@ -39,32 +39,37 @@ from ultrasound_dg.utils.mlflow import (
 
 logger = logging.getLogger(__name__)
 
-MANIFEST_PATH = MANIFEST_ROOT / "all_samples.csv"
-DEVELOPMENT_CONFIG_PATH = CONFIG_ROOT / "development" / "v1.yaml"
-PREPROCESSING_CONFIG_PATH = CONFIG_ROOT / "preprocessing" / "v1.yaml"
-TRAINING_CONFIG_PATH = CONFIG_ROOT / "training" / "baseline_v1.yaml"
-TUNING_CONFIG_PATH = CONFIG_ROOT / "tuning" / "baseline_v1.yaml"
-
 
 def main() -> None:
     format_logger()
 
-    base_training_config = load_config(
-        TRAINING_CONFIG_PATH,
-        TrainingConfig,
+    parser = argparse.ArgumentParser(
+        description="Tune a breast ultrasound segmentation model."
     )
-    development_config = load_config(
-        DEVELOPMENT_CONFIG_PATH,
-        DevelopmentConfig,
+
+    parser.add_argument(
+        "--base_experiment_config",
+        type=Path,
+        required=True,
+        help="Path to the base experiment configuration YAML file.",
     )
-    preprocessing_config = load_config(
-        PREPROCESSING_CONFIG_PATH,
-        SegmentationPreprocessingConfig,
+
+    parser.add_argument(
+        "--tuning_experiment_config",
+        type=Path,
+        required=True,
+        help="Path to the tuning experiment configuration YAML file.",
     )
-    tuning_config = load_config(
-        TUNING_CONFIG_PATH,
-        TuningConfig,
-    )
+
+    args = parser.parse_args()
+
+    base_experiment_config = load_config(args.base_experiment_config, ExperimentConfig)
+    development_config = base_experiment_config.development
+    preprocessing_config = base_experiment_config.preprocessing
+    tuning_config = load_config(args.tuning_experiment_config, TuningConfig)
+    base_training_config = base_experiment_config.training
+
+    tuning_run_name = f"{base_experiment_config.name}_{tuning_config.study_name}"
 
     manifest = load_manifest(MANIFEST_PATH)
 
@@ -134,11 +139,11 @@ def main() -> None:
         device=device,
     )
 
-    database_path = TUNING_OUTPUT_ROOT / f"{tuning_config.study_name}.db"
+    database_path = TUNING_OUTPUT_ROOT / f"{tuning_run_name}.db"
     storage_url = f"sqlite:///{database_path.resolve().as_posix()}"
 
     study = optuna.create_study(
-        study_name=tuning_config.study_name,
+        study_name=tuning_run_name,
         storage=storage_url,
         direction="maximize",
         pruner=pruner,
@@ -150,7 +155,7 @@ def main() -> None:
         tuning_config.weight_decays
     )
 
-    with mlflow.start_run(run_name=f"{tuning_config.study_name}"):
+    with mlflow.start_run(run_name=f"{tuning_run_name}"):
         log_config(development_config, "development_config")
         log_config(preprocessing_config, "preprocessing_config")
         log_config(base_training_config, "base_training_config")
@@ -164,7 +169,7 @@ def main() -> None:
             show_progress_bar=True,
         )
 
-        results_path = TUNING_OUTPUT_ROOT / f"{tuning_config.study_name}.csv"
+        results_path = TUNING_OUTPUT_ROOT / f"{tuning_run_name}.csv"
 
         study.trials_dataframe().to_csv(results_path, index=False)
         logger.info(
@@ -200,22 +205,27 @@ def main() -> None:
                 **base_training_config.model_dump(),
                 **study.best_params,
                 "epochs": tuning_config.epochs,
-                "mlflow_experiment_name": "baseline_tuned_v1",
             }
         )
 
-        best_config_path = (
-            TUNING_OUTPUT_ROOT / f"{tuning_config.study_name}_best_training_config.yaml"
+        best_experiment_config = ExperimentConfig.model_validate(
+            {
+                **base_experiment_config.model_dump(mode="json"),
+                "name": f"{base_experiment_config.name}_tuned",
+                "training": best_training_config.model_dump(mode="json"),
+            }
         )
+
+        best_config_path = TUNING_OUTPUT_ROOT / f"{tuning_run_name}_best_train_cfg.yaml"
 
         with best_config_path.open("w") as file:
             yaml.safe_dump(
-                best_training_config.model_dump(mode="json"),
+                best_experiment_config.model_dump(mode="json"),
                 file,
                 sort_keys=False,
             )
 
-        logger.info("Best training config saved to %s", best_config_path)
+        logger.info("Best experiment config saved to %s", best_config_path)
         mlflow.log_artifact(str(best_config_path), artifact_path="tuning")
 
 

@@ -1,9 +1,11 @@
+import argparse
 import logging
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 
 from ultrasound_dg.configs.config_loader import load_config
-from ultrasound_dg.configs.config_schemas import SegmentationPreprocessingConfig
+from ultrasound_dg.configs.config_schemas import ExperimentConfig
 from ultrasound_dg.data.adapters.breast_usg import BreastUSGAdapter
 from ultrasound_dg.data.adapters.bus_bra import BusBraAdapter
 from ultrasound_dg.data.adapters.bus_uclm import BusUclmAdapter
@@ -34,9 +36,8 @@ from ultrasound_dg.eda.visualization import (
     plot_lesion_fraction,
 )
 from ultrasound_dg.paths import (
-    CONFIG_ROOT,
     EDA_OUTPUT_ROOT,
-    MANIFEST_ROOT,
+    MANIFEST_PATH,
     PROJECT_ROOT,
     RAW_DATA_ROOT,
     REPORT_ROOT,
@@ -45,9 +46,6 @@ from ultrasound_dg.utils.logger import format_logger
 
 logger = logging.getLogger(__name__)
 
-PREPROCESSING_CONFIG_PATH = CONFIG_ROOT / "preprocessing" / "v1.yaml"
-
-MANIFEST_PATH = MANIFEST_ROOT / "all_samples.csv"
 FIGURES_OUTPUT = EDA_OUTPUT_ROOT / "figures"
 REPORT_FIGURES_OUTPUT = REPORT_ROOT / "eda" / "figures"
 PREPROCESSING_REPORT_FIGURES_OUTPUT = REPORT_ROOT / "preprocessing" / "figures"
@@ -55,7 +53,35 @@ PREPROCESSING_REPORT_FIGURES_OUTPUT = REPORT_ROOT / "preprocessing" / "figures"
 
 def main() -> None:
     format_logger()
+
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run dataset-level EDA and generate preprocessing examples using "
+            "the selected experiment configuration."
+        )
+    )
+    parser.add_argument(
+        "--experiment-config",
+        type=Path,
+        required=True,
+        help=(
+            "Path to the experiment YAML whose preprocessing configuration "
+            "will be used for the preprocessing examples."
+        ),
+    )
+    args = parser.parse_args()
+
+    experiment_config = load_config(
+        args.experiment_config,
+        ExperimentConfig,
+    )
+    preprocessing_config = experiment_config.preprocessing
+
     logger.info("Running exploratory data analysis...")
+    logger.info(
+        "Using preprocessing from experiment %s",
+        experiment_config.name,
+    )
 
     EDA_OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -160,11 +186,6 @@ def main() -> None:
         mask_stats=mask_stats,
     )
 
-    preprocessing_config = load_config(
-        PREPROCESSING_CONFIG_PATH,
-        SegmentationPreprocessingConfig,
-    )
-
     preprocessor = SegmentationPreprocessor(config=preprocessing_config)
 
     preprocessing_figure = plot_preprocessing_v1_examples(
@@ -173,7 +194,8 @@ def main() -> None:
         adapters=adapters,
         preprocessor=preprocessor,
         output_path=(
-            PREPROCESSING_REPORT_FIGURES_OUTPUT / "preprocessing-v1-examples.png"
+            PREPROCESSING_REPORT_FIGURES_OUTPUT
+            / f"preprocessing-{preprocessing_config.version}-examples.png"
         ),
     )
 

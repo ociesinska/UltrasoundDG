@@ -43,7 +43,6 @@ def _manifest() -> pd.DataFrame:
 
 def _config() -> DevelopmentConfig:
     return DevelopmentConfig(
-        version="test",
         seed=7,
         source_domains=["patient_source", "sample_source"],
         ood_development_domain=["external_dev"],
@@ -107,3 +106,51 @@ def test_development_protocol_is_reproducible() -> None:
             first[partition_name]["sample_id"].tolist()
             == second[partition_name]["sample_id"].tolist()
         )
+
+
+def test_development_protocol_excludes_configured_domain() -> None:
+    manifest = _manifest()
+
+    config = DevelopmentConfig(
+        seed=7,
+        source_domains=["patient_source"],
+        ood_development_domain=["external_dev"],
+        final_test_domain=["locked_test"],
+        excluded_domains=["sample_source"],
+        source_validation_fraction=0.25,
+        splitting={
+            "patient_source": SplitConfig(
+                strategy="patient",
+                stratify_by="diagnosis",
+            ),
+        },
+    )
+
+    protocol = create_development_protocol(
+        manifest=manifest,
+        config=config,
+    )
+
+    partitioned_ids = pd.concat(
+        [partition["sample_id"] for partition in protocol.values()],
+        ignore_index=True,
+    )
+
+    excluded_ids = set(
+        manifest.loc[
+            manifest["source_domain"] == "sample_source",
+            "sample_id",
+        ]
+    )
+
+    expected_ids = set(
+        manifest.loc[
+            manifest["source_domain"] != "sample_source",
+            "sample_id",
+        ]
+    )
+
+    assert set(partitioned_ids) == expected_ids
+    assert set(partitioned_ids).isdisjoint(excluded_ids)
+    assert set(protocol["train"]["source_domain"]) == {"patient_source"}
+    assert set(protocol["source_val"]["source_domain"]) == {"patient_source"}

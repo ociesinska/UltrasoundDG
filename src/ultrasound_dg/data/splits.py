@@ -130,7 +130,11 @@ def create_development_protocol(
         .reset_index(drop=True),
     }
 
-    _validate_protocol_partitions(manifest, protocol)
+    _validate_protocol_partitions(
+        manifest=manifest,
+        protocol=protocol,
+        excluded_domains=set(config.excluded_domains),
+    )
 
     return protocol
 
@@ -172,14 +176,22 @@ def _validate_protocol_config(
     source_domains = set(config.source_domains)
     ood_domains = set(config.ood_development_domain)
     final_domains = set(config.final_test_domain)
+    excluded_domains = set(config.excluded_domains)
 
-    if (
-        source_domains & ood_domains
-        or source_domains & final_domains
-        or ood_domains & final_domains
-    ):
+    overlapping_domains = (
+        (source_domains & ood_domains)
+        | (source_domains & final_domains)
+        | (source_domains & excluded_domains)
+        | (ood_domains & final_domains)
+        | (ood_domains & excluded_domains)
+        | (final_domains & excluded_domains)
+    )
+
+    if overlapping_domains:
         raise ValueError(
-            "Source, OOD development, and final test domains must be disjoint."
+            "Source, OOD development, final test, and excluded domains "
+            "must be disjoint. "
+            f"Overlapping domains: {sorted(overlapping_domains)}."
         )
 
     split_domains = set(config.splitting)
@@ -191,7 +203,7 @@ def _validate_protocol_config(
             f"Missing: {missing}; unexpected: {unexpected}."
         )
 
-    configured_domains = source_domains | ood_domains | final_domains
+    configured_domains = source_domains | ood_domains | final_domains | excluded_domains
     manifest_domains = set(manifest["source_domain"].dropna())
 
     missing_from_manifest = configured_domains - manifest_domains
@@ -207,18 +219,31 @@ def _validate_protocol_config(
 def _validate_protocol_partitions(
     manifest: pd.DataFrame,
     protocol: dict[str, pd.DataFrame],
+    excluded_domains: set[str],
 ) -> None:
-    original_ids = manifest["sample_id"]
+    manifest_ids = manifest["sample_id"]
+    expected_ids = manifest.loc[
+        ~manifest["source_domain"].isin(excluded_domains), "sample_id"
+    ]
     partitioned_ids = pd.concat(
         [partition["sample_id"] for partition in protocol.values()],
         ignore_index=True,
     )
 
-    if original_ids.duplicated().any():
+    if manifest_ids.duplicated().any():
         raise ValueError("Manifest sample_id values must be unique before splitting.")
 
     if partitioned_ids.duplicated().any():
         raise RuntimeError("A sample occurs in more than one protocol partition.")
 
-    if set(partitioned_ids) != set(original_ids):
-        raise RuntimeError("Protocol partitions do not cover the manifest exactly.")
+    expected_id_set = set(expected_ids)
+    partitioned_id_set = set(partitioned_ids)
+
+    if partitioned_id_set != expected_id_set:
+        missing = sorted(expected_id_set - partitioned_id_set)
+        unexpected = sorted(partitioned_id_set - expected_id_set)
+
+        raise RuntimeError(
+            "Protocol partitions do not cover the expected samples. "
+            f"Missing: {missing}; unexpected: {unexpected}."
+        )

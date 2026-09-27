@@ -8,6 +8,7 @@ CONFIG_ROOT = PACKAGE_ROOT / "configs"
 DATA_ROOT = PROJECT_ROOT / "data"
 RAW_DATA_ROOT = DATA_ROOT / "raw"
 MANIFEST_ROOT = DATA_ROOT / "manifests"
+MANIFEST_PATH = MANIFEST_ROOT / "all_samples.csv"
 
 OUTPUT_ROOT = PROJECT_ROOT / "outputs"
 CHECKPOINT_ROOT = OUTPUT_ROOT / "checkpoints"

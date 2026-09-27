@@ -99,3 +99,19 @@ def missed_lesion_image_score(
     prediction_is_normal = ~prediction_has_lesion
 
     return (target_has_lesion & prediction_is_normal).float()
+
+
+def print_metrics(
+    split_name: str,
+    metrics: dict[str, float],
+) -> None:
+    print(f"\n{split_name}")
+    print(f"  loss:                 {metrics['loss']:.4f}")
+    print(f"  dice:                 {metrics['dice']:.4f}")
+    print(f"  lesion_dice:          {metrics['lesion_dice']:.4f}")
+    print(f"  lesion_precision:     {metrics['lesion_precision']:.4f}")
+    print(f"  lesion_recall:        {metrics['lesion_recall']:.4f}")
+    print(f"  lesion_iou:           {metrics['lesion_iou']:.4f}")
+    print(f"  lesion_miss_rate:     {metrics['lesion_miss_rate']:.2%}")
+    print(f"  normal_fp_fraction:   {metrics['normal_fp_fraction']:.4%}")
+    print(f"  normal_fp_image_rate: {metrics['normal_fp_image_rate']:.2%}")

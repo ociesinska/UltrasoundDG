@@ -5,11 +5,8 @@ from statistics import fmean
 
 from torch.utils.data import DataLoader
 
-from ultrasound_dg.configs.config_loader import load_config
 from ultrasound_dg.configs.config_schemas import (
-    DevelopmentConfig,
-    SegmentationPreprocessingConfig,
-    TrainingConfig,
+    ExperimentConfig,
 )
 from ultrasound_dg.data.adapters.base import DatasetAdapter
 from ultrasound_dg.data.adapters.breast_usg import BreastUSGAdapter
@@ -22,41 +19,18 @@ from ultrasound_dg.data.prepare import load_manifest
 from ultrasound_dg.data.preprocessing import SegmentationPreprocessor
 from ultrasound_dg.data.splits import create_development_protocol
 from ultrasound_dg.models.unet import create_unet
-from ultrasound_dg.paths import (
-    CONFIG_ROOT,
-    MANIFEST_ROOT,
-    PROJECT_ROOT,
-    RAW_DATA_ROOT,
-    get_checkpoint_dir,
+from ultrasound_dg.paths import MANIFEST_PATH, PROJECT_ROOT, RAW_DATA_ROOT
+from ultrasound_dg.training.checkpoints import (
+    read_checkpoint,
+    restore_checkpoint,
 )
-from ultrasound_dg.training.checkpoints import load_checkpoint
 from ultrasound_dg.training.evaluation import evaluate_loader
 from ultrasound_dg.training.losses import BCEDiceLoss
+from ultrasound_dg.training.metrics import print_metrics
 from ultrasound_dg.utils.device import resolve_device
 from ultrasound_dg.utils.logger import format_logger
 
 logger = logging.getLogger(__name__)
-
-MANIFEST_PATH = MANIFEST_ROOT / "all_samples.csv"
-DEVELOPMENT_CONFIG_PATH = CONFIG_ROOT / "development" / "v1.yaml"
-PREPROCESSING_CONFIG_PATH = CONFIG_ROOT / "preprocessing" / "v1.yaml"
-TRAINING_CONFIG_PATH = CONFIG_ROOT / "training" / "baseline_v1.yaml"
-
-
-def print_metrics(
-    split_name: str,
-    metrics: dict[str, float],
-) -> None:
-    print(f"\n{split_name}")
-    print(f"  loss:                 {metrics['loss']:.4f}")
-    print(f"  dice:                 {metrics['dice']:.4f}")
-    print(f"  lesion_dice:          {metrics['lesion_dice']:.4f}")
-    print(f"  lesion_precision:     {metrics['lesion_precision']:.4f}")
-    print(f"  lesion_recall:        {metrics['lesion_recall']:.4f}")
-    print(f"  lesion_iou:           {metrics['lesion_iou']:.4f}")
-    print(f"  lesion_miss_rate:     {metrics['lesion_miss_rate']:.2%}")
-    print(f"  normal_fp_fraction:   {metrics['normal_fp_fraction']:.4%}")
-    print(f"  normal_fp_image_rate: {metrics['normal_fp_image_rate']:.2%}")
 
 
 def main() -> None:
@@ -65,26 +39,26 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Evaluate a breast ultrasound segmentation model."
     )
+
     parser.add_argument(
-        "--config",
+        "--checkpoint",
         type=Path,
-        default=TRAINING_CONFIG_PATH,
-        help="Path to the training configuration used by the checkpoint.",
+        required=True,
+        help="Path to the model checkpoint.",
     )
+
     args = parser.parse_args()
 
-    training_config = load_config(args.config, TrainingConfig)
-    preprocessing_config = load_config(
-        PREPROCESSING_CONFIG_PATH,
-        SegmentationPreprocessingConfig,
-    )
-    development_config = load_config(
-        DEVELOPMENT_CONFIG_PATH,
-        DevelopmentConfig,
-    )
+    checkpoint = read_checkpoint(path=args.checkpoint, map_location="cpu")
+    experiment_config = ExperimentConfig.model_validate(checkpoint["configs"])
+    development_config = experiment_config.development
+    preprocessing_config = experiment_config.preprocessing
+    training_config = experiment_config.training
 
     device = resolve_device(training_config.device)
     model = create_unet().to(device)
+
+    restore_checkpoint(checkpoint=checkpoint, model=model, optimizer=None)
 
     manifest = load_manifest(MANIFEST_PATH)
     adapters: dict[str, DatasetAdapter] = {
@@ -133,18 +107,6 @@ def main() -> None:
         batch_size=training_config.eval_batch_size,
         shuffle=False,
         num_workers=training_config.num_workers,
-    )
-
-    checkpoint_dir = get_checkpoint_dir(
-        experiment_name=training_config.mlflow_experiment_name,
-        seed=training_config.seed,
-    )
-
-    checkpoint = load_checkpoint(
-        path=checkpoint_dir / "best_source_val.pt",
-        model=model,
-        optimizer=None,
-        device=device,
     )
 
     loss_fn = BCEDiceLoss().to(device)

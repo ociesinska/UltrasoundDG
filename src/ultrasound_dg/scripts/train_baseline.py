@@ -9,9 +9,7 @@ from torch.utils.data import DataLoader
 
 from ultrasound_dg.configs.config_loader import load_config
 from ultrasound_dg.configs.config_schemas import (
-    DevelopmentConfig,
-    SegmentationPreprocessingConfig,
-    TrainingConfig,
+    ExperimentConfig,
 )
 from ultrasound_dg.data.adapters.base import DatasetAdapter
 from ultrasound_dg.data.adapters.breast_usg import BreastUSGAdapter
@@ -27,8 +25,7 @@ from ultrasound_dg.data.preprocessing import (
 from ultrasound_dg.data.splits import create_development_protocol
 from ultrasound_dg.models.unet import create_unet
 from ultrasound_dg.paths import (
-    CONFIG_ROOT,
-    MANIFEST_ROOT,
+    MANIFEST_PATH,
     PROJECT_ROOT,
     RAW_DATA_ROOT,
     get_checkpoint_dir,
@@ -54,11 +51,6 @@ from ultrasound_dg.utils.mlflow import (
 
 logger = logging.getLogger(__name__)
 
-MANIFEST_PATH = MANIFEST_ROOT / "all_samples.csv"
-DEVELOPMENT_CONFIG_PATH = CONFIG_ROOT / "development" / "v1.yaml"
-PREPROCESSING_CONFIG_PATH = CONFIG_ROOT / "preprocessing" / "v1.yaml"
-TRAINING_CONFIG_PATH = CONFIG_ROOT / "training" / "baseline_v1.yaml"
-
 
 def main() -> None:
     format_logger()
@@ -66,11 +58,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Train a breast ultrasound segmentation baseline."
     )
+
     parser.add_argument(
-        "--config",
+        "--experiment_config",
         type=Path,
-        default=TRAINING_CONFIG_PATH,
-        help="Path to the training configuration YAML file.",
+        required=True,
+        help="Path to the complete experiment configuration YAML file.",
     )
 
     parser.add_argument(
@@ -89,19 +82,14 @@ def main() -> None:
         "breast_usg": BreastUSGAdapter(RAW_DATA_ROOT / "BrEaST"),
     }
 
-    preprocessing_config = load_config(
-        PREPROCESSING_CONFIG_PATH, SegmentationPreprocessingConfig
-    )
+    experiment_config = load_config(args.experiment_config, ExperimentConfig)
 
-    development_config = load_config(
-        DEVELOPMENT_CONFIG_PATH,
-        DevelopmentConfig,
-    )
-
-    training_config = load_config(args.config, TrainingConfig)
+    development_config = experiment_config.development
+    preprocessing_config = experiment_config.preprocessing
+    training_config = experiment_config.training
 
     checkpoint_dir = get_checkpoint_dir(
-        experiment_name=training_config.mlflow_experiment_name,
+        experiment_name=experiment_config.name,
         seed=training_config.seed,
     )
 
@@ -162,7 +150,7 @@ def main() -> None:
     loss_fn = BCEDiceLoss().to(device)
 
     setup_mlflow(
-        experiment_name=training_config.mlflow_experiment_name,
+        experiment_name=experiment_config.name,
         set_experiment=True,
     )
 
@@ -171,10 +159,7 @@ def main() -> None:
         config=training_config,
     )
 
-    run_name = (
-        args.run_name
-        or f"{training_config.mlflow_experiment_name}_seed_{training_config.seed}"
-    )
+    run_name = args.run_name or f"{experiment_config.name}_seed_{training_config.seed}"
 
     with mlflow.start_run(run_name=run_name):
         log_config(development_config, "development_config")
@@ -238,11 +223,7 @@ def main() -> None:
                 metric_name="lesion_dice",
             )
 
-            checkpoint_configs = {
-                "training": training_config.model_dump(),
-                "development": development_config.model_dump(),
-                "preprocessing": preprocessing_config.model_dump(),
-            }
+            checkpoint_configs = experiment_config.model_dump(mode="json")
 
             checkpoint_metrics = {
                 **source_val_metrics,
