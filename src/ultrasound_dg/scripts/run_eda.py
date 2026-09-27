@@ -1,5 +1,4 @@
 import logging
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 
@@ -34,39 +33,39 @@ from ultrasound_dg.eda.visualization import (
     plot_images_per_patient,
     plot_lesion_fraction,
 )
+from ultrasound_dg.paths import (
+    CONFIG_ROOT,
+    EDA_OUTPUT_ROOT,
+    MANIFEST_ROOT,
+    PROJECT_ROOT,
+    RAW_DATA_ROOT,
+    REPORT_ROOT,
+)
 from ultrasound_dg.utils.logger import format_logger
 
 logger = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+PREPROCESSING_CONFIG_PATH = CONFIG_ROOT / "preprocessing" / "v1.yaml"
 
-PREPROCESSING_CONFIG_PATH = (
-    PROJECT_ROOT / "src" / "ultrasound_dg" / "configs" / "preprocessing" / "v1.yaml"
-)
-
-DATA_ROOT = PROJECT_ROOT / "data" / "raw"
-MANIFEST_PATH = PROJECT_ROOT / "data" / "manifests" / "all_samples.csv"
-EDA_OUTPUT = PROJECT_ROOT / "outputs" / "eda"
-FIGURES_OUTPUT = EDA_OUTPUT / "figures"
-REPORT_FIGURES_OUTPUT = PROJECT_ROOT / "reports" / "eda" / "figures"
-PREPROCESSING_REPORT_FIGURES_OUTPUT = (
-    PROJECT_ROOT / "reports" / "preprocessing" / "figures"
-)
+MANIFEST_PATH = MANIFEST_ROOT / "all_samples.csv"
+FIGURES_OUTPUT = EDA_OUTPUT_ROOT / "figures"
+REPORT_FIGURES_OUTPUT = REPORT_ROOT / "eda" / "figures"
+PREPROCESSING_REPORT_FIGURES_OUTPUT = REPORT_ROOT / "preprocessing" / "figures"
 
 
 def main() -> None:
     format_logger()
     logger.info("Running exploratory data analysis...")
 
-    EDA_OUTPUT.mkdir(parents=True, exist_ok=True)
+    EDA_OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 
     manifest = load_manifest(MANIFEST_PATH)
 
     adapters = {
-        "bus_bra": BusBraAdapter(DATA_ROOT / "BUSBRA"),
-        "busi": BusiAdapter(DATA_ROOT / "BUSI_Curated"),
-        "bus_uclm": BusUclmAdapter(DATA_ROOT / "BUS-UCLM"),
-        "breast_usg": BreastUSGAdapter(DATA_ROOT / "BrEaST"),
+        "bus_bra": BusBraAdapter(RAW_DATA_ROOT / "BUSBRA"),
+        "busi": BusiAdapter(RAW_DATA_ROOT / "BUSI_Curated"),
+        "bus_uclm": BusUclmAdapter(RAW_DATA_ROOT / "BUS-UCLM"),
+        "breast_usg": BreastUSGAdapter(RAW_DATA_ROOT / "BrEaST"),
     }
 
     # Manifest-level statistics
@@ -88,27 +87,27 @@ def main() -> None:
     mask_summary = mask_stats_summary(mask_stats)
 
     manifest_stats.to_csv(
-        EDA_OUTPUT / "manifest_summary.csv",
+        EDA_OUTPUT_ROOT / "manifest_summary.csv",
         index=False,
     )
 
     image_stats.to_csv(
-        EDA_OUTPUT / "image_stats.csv",
+        EDA_OUTPUT_ROOT / "image_stats.csv",
         index=False,
     )
 
     image_summary.to_csv(
-        EDA_OUTPUT / "image_stats_summary.csv",
+        EDA_OUTPUT_ROOT / "image_stats_summary.csv",
         index=False,
     )
 
     mask_stats.to_csv(
-        EDA_OUTPUT / "mask_stats.csv",
+        EDA_OUTPUT_ROOT / "mask_stats.csv",
         index=False,
     )
 
     mask_summary.to_csv(
-        EDA_OUTPUT / "mask_stats_summary.csv",
+        EDA_OUTPUT_ROOT / "mask_stats_summary.csv",
         index=False,
     )
 
@@ -129,7 +128,7 @@ def main() -> None:
     )
 
     doppler_summary.to_csv(
-        EDA_OUTPUT / "doppler_stats_summary.csv",
+        EDA_OUTPUT_ROOT / "doppler_stats_summary.csv",
         index=False,
     )
 
@@ -196,14 +195,14 @@ def main() -> None:
         selection_cases=selection_cases,
         project_root=PROJECT_ROOT,
         adapters=adapters,
-        output_dir=EDA_OUTPUT / "manual_checks",
+        output_dir=EDA_OUTPUT_ROOT / "manual_checks",
         show=False,
     )
 
     for figure in inspection_figures:
         plt.close(figure)
 
-    logger.info("EDA outputs saved to %s", EDA_OUTPUT)
+    logger.info("EDA outputs saved to %s", EDA_OUTPUT_ROOT)
 
 
 if __name__ == "__main__":

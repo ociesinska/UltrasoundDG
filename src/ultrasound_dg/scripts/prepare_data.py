@@ -1,5 +1,4 @@
 import logging
-from pathlib import Path
 
 from ultrasound_dg.data.adapters.breast_usg import BreastUSGAdapter
 from ultrasound_dg.data.adapters.bus_bra import BusBraAdapter
@@ -11,23 +10,22 @@ from ultrasound_dg.data.prepare import (
     validate_manifest,
 )
 from ultrasound_dg.data.validation import validate_samples
+from ultrasound_dg.paths import MANIFEST_ROOT, PROJECT_ROOT, RAW_DATA_ROOT
 from ultrasound_dg.utils.logger import format_logger
 
 logger = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DATA_ROOT = PROJECT_ROOT / "data" / "raw"
-MANIFEST_PATH = PROJECT_ROOT / "data" / "manifests" / "all_samples.csv"
+MANIFEST_PATH = MANIFEST_ROOT / "all_samples.csv"
 
 
 def main() -> None:
     format_logger()
 
     adapters = {
-        "bus_bra": BusBraAdapter(DATA_ROOT / "BUSBRA"),
-        "busi": BusiAdapter(DATA_ROOT / "BUSI_Curated"),
-        "bus_uclm": BusUclmAdapter(DATA_ROOT / "BUS-UCLM"),
-        "breast_usg": BreastUSGAdapter(DATA_ROOT / "BrEaST"),
+        "bus_bra": BusBraAdapter(RAW_DATA_ROOT / "BUSBRA"),
+        "busi": BusiAdapter(RAW_DATA_ROOT / "BUSI_Curated"),
+        "bus_uclm": BusUclmAdapter(RAW_DATA_ROOT / "BUS-UCLM"),
+        "breast_usg": BreastUSGAdapter(RAW_DATA_ROOT / "BrEaST"),
     }
 
     all_samples = []

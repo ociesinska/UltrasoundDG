@@ -26,6 +26,13 @@ from ultrasound_dg.data.preprocessing import (
 )
 from ultrasound_dg.data.splits import create_development_protocol
 from ultrasound_dg.models.unet import create_unet
+from ultrasound_dg.paths import (
+    CONFIG_ROOT,
+    MANIFEST_ROOT,
+    PROJECT_ROOT,
+    RAW_DATA_ROOT,
+    get_checkpoint_dir,
+)
 from ultrasound_dg.training.checkpoints import (
     load_checkpoint,
     save_checkpoint,
@@ -47,15 +54,10 @@ from ultrasound_dg.utils.mlflow import (
 
 logger = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-MANIFEST_PATH = PROJECT_ROOT / "data" / "manifests" / "all_samples.csv"
-CONFIG_ROOT = PROJECT_ROOT / "src" / "ultrasound_dg" / "configs"
-DATA_ROOT = PROJECT_ROOT / "data" / "raw"
+MANIFEST_PATH = MANIFEST_ROOT / "all_samples.csv"
 DEVELOPMENT_CONFIG_PATH = CONFIG_ROOT / "development" / "v1.yaml"
 PREPROCESSING_CONFIG_PATH = CONFIG_ROOT / "preprocessing" / "v1.yaml"
 TRAINING_CONFIG_PATH = CONFIG_ROOT / "training" / "baseline_v1.yaml"
-CHECKPOINT_ROOT = PROJECT_ROOT / "outputs" / "checkpoints"
-MLFLOW_TRACKING_URI = "http://127.0.0.1:8080"
 
 
 def main() -> None:
@@ -70,14 +72,21 @@ def main() -> None:
         default=TRAINING_CONFIG_PATH,
         help="Path to the training configuration YAML file.",
     )
+
+    parser.add_argument(
+        "--run-name",
+        type=str,
+        default=None,
+        help="Optional MLflow run name.",
+    )
     args = parser.parse_args()
 
     manifest = load_manifest(MANIFEST_PATH)
     adapters: dict[str, DatasetAdapter] = {
-        "bus_bra": BusBraAdapter(DATA_ROOT / "BUSBRA"),
-        "busi": BusiAdapter(DATA_ROOT / "BUSI_Curated"),
-        "bus_uclm": BusUclmAdapter(DATA_ROOT / "BUS-UCLM"),
-        "breast_usg": BreastUSGAdapter(DATA_ROOT / "BrEaST"),
+        "bus_bra": BusBraAdapter(RAW_DATA_ROOT / "BUSBRA"),
+        "busi": BusiAdapter(RAW_DATA_ROOT / "BUSI_Curated"),
+        "bus_uclm": BusUclmAdapter(RAW_DATA_ROOT / "BUS-UCLM"),
+        "breast_usg": BreastUSGAdapter(RAW_DATA_ROOT / "BrEaST"),
     }
 
     preprocessing_config = load_config(
@@ -91,10 +100,9 @@ def main() -> None:
 
     training_config = load_config(args.config, TrainingConfig)
 
-    checkpoint_dir = (
-        CHECKPOINT_ROOT
-        / training_config.mlflow_experiment_name
-        / f"seed_{training_config.seed}"
+    checkpoint_dir = get_checkpoint_dir(
+        experiment_name=training_config.mlflow_experiment_name,
+        seed=training_config.seed,
     )
 
     set_random_seed(training_config.seed)
@@ -155,7 +163,6 @@ def main() -> None:
 
     setup_mlflow(
         experiment_name=training_config.mlflow_experiment_name,
-        tracking_uri=MLFLOW_TRACKING_URI,
         set_experiment=True,
     )
 
@@ -164,7 +171,12 @@ def main() -> None:
         config=training_config,
     )
 
-    with mlflow.start_run(run_name=f"{training_config.mlflow_experiment_name}"):
+    run_name = (
+        args.run_name
+        or f"{training_config.mlflow_experiment_name}_seed_{training_config.seed}"
+    )
+
+    with mlflow.start_run(run_name=run_name):
         log_config(development_config, "development_config")
         log_config(preprocessing_config, "preprocessing_config")
         log_config(training_config, "training_config")

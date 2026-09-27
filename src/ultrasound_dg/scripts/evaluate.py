@@ -1,3 +1,4 @@
+import argparse
 import logging
 from pathlib import Path
 from statistics import fmean
@@ -21,6 +22,13 @@ from ultrasound_dg.data.prepare import load_manifest
 from ultrasound_dg.data.preprocessing import SegmentationPreprocessor
 from ultrasound_dg.data.splits import create_development_protocol
 from ultrasound_dg.models.unet import create_unet
+from ultrasound_dg.paths import (
+    CONFIG_ROOT,
+    MANIFEST_ROOT,
+    PROJECT_ROOT,
+    RAW_DATA_ROOT,
+    get_checkpoint_dir,
+)
 from ultrasound_dg.training.checkpoints import load_checkpoint
 from ultrasound_dg.training.evaluation import evaluate_loader
 from ultrasound_dg.training.losses import BCEDiceLoss
@@ -29,14 +37,10 @@ from ultrasound_dg.utils.logger import format_logger
 
 logger = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-MANIFEST_PATH = PROJECT_ROOT / "data" / "manifests" / "all_samples.csv"
-CONFIG_ROOT = PROJECT_ROOT / "src" / "ultrasound_dg" / "configs"
-DATA_ROOT = PROJECT_ROOT / "data" / "raw"
+MANIFEST_PATH = MANIFEST_ROOT / "all_samples.csv"
 DEVELOPMENT_CONFIG_PATH = CONFIG_ROOT / "development" / "v1.yaml"
 PREPROCESSING_CONFIG_PATH = CONFIG_ROOT / "preprocessing" / "v1.yaml"
 TRAINING_CONFIG_PATH = CONFIG_ROOT / "training" / "baseline_v1.yaml"
-CHECKPOINT_DIR = PROJECT_ROOT / "outputs" / "checkpoints" / "baseline_v1"
 
 
 def print_metrics(
@@ -58,7 +62,18 @@ def print_metrics(
 def main() -> None:
     format_logger()
 
-    training_config = load_config(TRAINING_CONFIG_PATH, TrainingConfig)
+    parser = argparse.ArgumentParser(
+        description="Evaluate a breast ultrasound segmentation model."
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=TRAINING_CONFIG_PATH,
+        help="Path to the training configuration used by the checkpoint.",
+    )
+    args = parser.parse_args()
+
+    training_config = load_config(args.config, TrainingConfig)
     preprocessing_config = load_config(
         PREPROCESSING_CONFIG_PATH,
         SegmentationPreprocessingConfig,
@@ -73,10 +88,10 @@ def main() -> None:
 
     manifest = load_manifest(MANIFEST_PATH)
     adapters: dict[str, DatasetAdapter] = {
-        "bus_bra": BusBraAdapter(DATA_ROOT / "BUSBRA"),
-        "busi": BusiAdapter(DATA_ROOT / "BUSI_Curated"),
-        "bus_uclm": BusUclmAdapter(DATA_ROOT / "BUS-UCLM"),
-        "breast_usg": BreastUSGAdapter(DATA_ROOT / "BrEaST"),
+        "bus_bra": BusBraAdapter(RAW_DATA_ROOT / "BUSBRA"),
+        "busi": BusiAdapter(RAW_DATA_ROOT / "BUSI_Curated"),
+        "bus_uclm": BusUclmAdapter(RAW_DATA_ROOT / "BUS-UCLM"),
+        "breast_usg": BreastUSGAdapter(RAW_DATA_ROOT / "BrEaST"),
     }
     protocol = create_development_protocol(
         manifest=manifest,
@@ -120,8 +135,13 @@ def main() -> None:
         num_workers=training_config.num_workers,
     )
 
+    checkpoint_dir = get_checkpoint_dir(
+        experiment_name=training_config.mlflow_experiment_name,
+        seed=training_config.seed,
+    )
+
     checkpoint = load_checkpoint(
-        path=CHECKPOINT_DIR / "best_source_val.pt",
+        path=checkpoint_dir / "best_source_val.pt",
         model=model,
         optimizer=None,
         device=device,

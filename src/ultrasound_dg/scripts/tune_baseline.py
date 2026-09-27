@@ -1,6 +1,5 @@
 import logging
 from functools import partial
-from pathlib import Path
 
 import mlflow
 import optuna
@@ -23,6 +22,13 @@ from ultrasound_dg.data.domain_loaders import create_domain_loaders
 from ultrasound_dg.data.prepare import load_manifest
 from ultrasound_dg.data.preprocessing import SegmentationPreprocessor
 from ultrasound_dg.data.splits import create_development_protocol
+from ultrasound_dg.paths import (
+    CONFIG_ROOT,
+    MANIFEST_ROOT,
+    PROJECT_ROOT,
+    RAW_DATA_ROOT,
+    TUNING_OUTPUT_ROOT,
+)
 from ultrasound_dg.training.tuning import run_baseline_tuning_trial
 from ultrasound_dg.utils.device import resolve_device
 from ultrasound_dg.utils.logger import format_logger
@@ -33,18 +39,11 @@ from ultrasound_dg.utils.mlflow import (
 
 logger = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-MANIFEST_PATH = PROJECT_ROOT / "data" / "manifests" / "all_samples.csv"
-CONFIG_ROOT = PROJECT_ROOT / "src" / "ultrasound_dg" / "configs"
-DATA_ROOT = PROJECT_ROOT / "data" / "raw"
-
+MANIFEST_PATH = MANIFEST_ROOT / "all_samples.csv"
 DEVELOPMENT_CONFIG_PATH = CONFIG_ROOT / "development" / "v1.yaml"
 PREPROCESSING_CONFIG_PATH = CONFIG_ROOT / "preprocessing" / "v1.yaml"
 TRAINING_CONFIG_PATH = CONFIG_ROOT / "training" / "baseline_v1.yaml"
 TUNING_CONFIG_PATH = CONFIG_ROOT / "tuning" / "baseline_v1.yaml"
-
-TUNING_OUTPUT_DIR = PROJECT_ROOT / "outputs" / "tuning"
-MLFLOW_TRACKING_URI = "http://127.0.0.1:8080"
 
 
 def main() -> None:
@@ -70,10 +69,10 @@ def main() -> None:
     manifest = load_manifest(MANIFEST_PATH)
 
     adapters: dict[str, DatasetAdapter] = {
-        "bus_bra": BusBraAdapter(DATA_ROOT / "BUSBRA"),
-        "busi": BusiAdapter(DATA_ROOT / "BUSI_Curated"),
-        "bus_uclm": BusUclmAdapter(DATA_ROOT / "BUS-UCLM"),
-        "breast_usg": BreastUSGAdapter(DATA_ROOT / "BrEaST"),
+        "bus_bra": BusBraAdapter(RAW_DATA_ROOT / "BUSBRA"),
+        "busi": BusiAdapter(RAW_DATA_ROOT / "BUSI_Curated"),
+        "bus_uclm": BusUclmAdapter(RAW_DATA_ROOT / "BUS-UCLM"),
+        "breast_usg": BreastUSGAdapter(RAW_DATA_ROOT / "BrEaST"),
     }
 
     protocol = create_development_protocol(
@@ -105,12 +104,11 @@ def main() -> None:
     device = resolve_device(base_training_config.device)
 
     setup_mlflow(
-        tracking_uri=MLFLOW_TRACKING_URI,
         experiment_name=tuning_config.mlflow_experiment_name,
         set_experiment=True,
     )
 
-    TUNING_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    TUNING_OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 
     search_space = {
         "learning_rate": tuning_config.learning_rates,
@@ -136,7 +134,7 @@ def main() -> None:
         device=device,
     )
 
-    database_path = TUNING_OUTPUT_DIR / f"{tuning_config.study_name}.db"
+    database_path = TUNING_OUTPUT_ROOT / f"{tuning_config.study_name}.db"
     storage_url = f"sqlite:///{database_path.resolve().as_posix()}"
 
     study = optuna.create_study(
@@ -166,7 +164,7 @@ def main() -> None:
             show_progress_bar=True,
         )
 
-        results_path = TUNING_OUTPUT_DIR / f"{tuning_config.study_name}.csv"
+        results_path = TUNING_OUTPUT_ROOT / f"{tuning_config.study_name}.csv"
 
         study.trials_dataframe().to_csv(results_path, index=False)
         logger.info(
@@ -207,7 +205,7 @@ def main() -> None:
         )
 
         best_config_path = (
-            TUNING_OUTPUT_DIR / f"{tuning_config.study_name}_best_training_config.yaml"
+            TUNING_OUTPUT_ROOT / f"{tuning_config.study_name}_best_training_config.yaml"
         )
 
         with best_config_path.open("w") as file:
