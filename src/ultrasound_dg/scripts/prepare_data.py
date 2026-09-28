@@ -19,6 +19,7 @@ MANIFEST_PATH = MANIFEST_ROOT / "all_samples.csv"
 
 
 def main() -> None:
+    """Build, save, and validate the unified dataset manifest."""
     format_logger()
 
     adapters = {

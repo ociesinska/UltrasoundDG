@@ -5,6 +5,7 @@ from ultrasound_dg.configs.config_schemas import TrainingConfig
 
 
 def create_optimizer(model: nn.Module, config: TrainingConfig) -> torch.optim.Optimizer:
+    """Construct the optimizer selected in the training configuration."""
     if config.optimizer == "AdamW":
         return torch.optim.AdamW(
             model.parameters(),

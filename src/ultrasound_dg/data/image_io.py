@@ -5,6 +5,7 @@ from PIL import Image
 
 
 def image_to_rgb_array(image: Image.Image) -> np.ndarray:
+    """Convert a PIL image to RGB, compositing alpha over black if needed."""
     if "A" in image.getbands():
         background = Image.new(
             "RGBA",
@@ -21,6 +22,7 @@ def image_to_rgb_array(image: Image.Image) -> np.ndarray:
 
 
 def load_rgb_image(path: Path) -> np.ndarray:
+    """Load an image path as an RGB NumPy array with a clear failure message."""
     try:
         with Image.open(path) as image:
             return image_to_rgb_array(image)

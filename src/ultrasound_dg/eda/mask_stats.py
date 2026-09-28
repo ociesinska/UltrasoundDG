@@ -18,6 +18,12 @@ def compute_mask_stats(
     project_root: Path,
     adapters: Mapping[str, DatasetAdapter],
 ) -> pd.DataFrame:
+    """Compute per-sample lesion size, bounding box, and topology statistics.
+
+    Missing mask files for normal samples are represented as empty masks with
+    the image dimensions. Connected components use eight-neighbour
+    connectivity, so diagonal lesion pixels belong to the same component.
+    """
     rows = []
 
     for _, row in manifest.iterrows():
@@ -88,6 +94,7 @@ def compute_mask_stats(
 def mask_stats_summary(
     mask_stats: pd.DataFrame,
 ) -> pd.DataFrame:
+    """Summarize non-empty lesion masks and sample counts by source domain."""
     lesion_stats = mask_stats[mask_stats["lesion_area_pixels"] > 0]
 
     summary = lesion_stats.groupby("source_domain").agg(

@@ -2,6 +2,7 @@ import pandas as pd
 
 
 def manifest_summary(manifest: pd.DataFrame) -> pd.DataFrame:
+    """Summarize sample, diagnosis, patient, and mask coverage by domain."""
 
     summary = manifest.groupby("source_domain").agg(
         sample_count=("sample_id", "size"),

@@ -5,6 +5,7 @@ import torch
 
 
 def set_random_seed(seed: int) -> None:
+    """Seed Python, NumPy, PyTorch, and every available CUDA device."""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)

@@ -8,6 +8,7 @@ from ultrasound_dg.data.image_io import image_to_rgb_array, load_rgb_image
 
 
 def test_image_to_rgb_array_composites_transparency_on_black() -> None:
+    """Ensure transparent pixels are composited onto a black background."""
     rgba = np.array(
         [
             [[255, 255, 255, 0], [10, 20, 30, 255]],
@@ -24,6 +25,7 @@ def test_image_to_rgb_array_composites_transparency_on_black() -> None:
 
 
 def test_load_rgb_image_converts_grayscale_to_three_channels(tmp_path: Path) -> None:
+    """Ensure grayscale files are loaded as three identical RGB channels."""
     grayscale = np.array(
         [
             [0, 64, 255],
@@ -43,6 +45,7 @@ def test_load_rgb_image_converts_grayscale_to_three_channels(tmp_path: Path) -> 
 
 
 def test_load_rgb_image_reports_invalid_path(tmp_path: Path) -> None:
+    """Ensure image loading reports a clear error for a missing path."""
     missing_path = tmp_path / "missing.png"
 
     with pytest.raises(ValueError, match="Could not load image"):

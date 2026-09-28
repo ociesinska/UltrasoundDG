@@ -155,6 +155,7 @@ def macro_average_domain_metric(
     metrics_by_domain: Mapping[str, Mapping[str, float]],
     metric_name: str,
 ) -> float:
+    """Average a finite metric across domains with equal domain weight."""
     if not metrics_by_domain:
         raise ValueError("Cannot calculate a macro average without domains.")
 

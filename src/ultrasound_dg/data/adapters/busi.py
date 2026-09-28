@@ -13,6 +13,7 @@ def parse_busi_filename(
     path: Path,
     option: Literal["usg_image", "mask"],
 ) -> tuple[str, str]:
+    """Extract case identifier and diagnosis from a curated BUSI filename."""
     stem = path.stem
 
     if option == "mask":
@@ -30,6 +31,7 @@ def parse_busi_filename(
 
 class BusiAdapter(DatasetAdapter):
     def samples(self) -> list[UltrasoundSample]:
+        """Pair curated BUSI images and masks and create sample records."""
 
         images_path = self.root / "images"
         masks_path = self.root / "masks"
@@ -84,6 +86,7 @@ class BusiAdapter(DatasetAdapter):
         return samples
 
     def validate_sample(self, sample: UltrasoundSample) -> None:
+        """Validate BUSI mask alignment and lesion-label consistency."""
         mask = self.decode_mask(sample.mask_path)
         image = np.asarray(Image.open(sample.image_path))
 
@@ -99,6 +102,7 @@ class BusiAdapter(DatasetAdapter):
             raise ValueError(f"Expected empty mask for normal sample {sample.image_id}")
 
     def decode_mask(self, path: Path) -> np.ndarray:
+        """Threshold a grayscale BUSI annotation into a binary mask."""
 
         with Image.open(path) as image:
             if image.mode != "L":

@@ -5,6 +5,7 @@ from ultrasound_dg.data.splits import create_development_protocol
 
 
 def _manifest() -> pd.DataFrame:
+    """Build a synthetic manifest covering all protocol domain roles."""
     rows: list[dict[str, object]] = []
 
     for index in range(16):
@@ -42,6 +43,7 @@ def _manifest() -> pd.DataFrame:
 
 
 def _config() -> DevelopmentConfig:
+    """Build a development config with patient- and sample-level sources."""
     return DevelopmentConfig(
         seed=7,
         source_domains=["patient_source", "sample_source"],
@@ -62,6 +64,7 @@ def _config() -> DevelopmentConfig:
 
 
 def test_development_protocol_uses_configured_domains_and_strategies() -> None:
+    """Ensure every domain is assigned and each configured split is respected."""
     manifest = _manifest()
 
     protocol = create_development_protocol(manifest, _config())
@@ -95,6 +98,7 @@ def test_development_protocol_uses_configured_domains_and_strategies() -> None:
 
 
 def test_development_protocol_is_reproducible() -> None:
+    """Ensure the same seed produces identical protocol partitions."""
     manifest = _manifest()
     config = _config()
 
@@ -109,6 +113,7 @@ def test_development_protocol_is_reproducible() -> None:
 
 
 def test_development_protocol_excludes_configured_domain() -> None:
+    """Ensure explicitly excluded domains do not enter any partition."""
     manifest = _manifest()
 
     config = DevelopmentConfig(

@@ -52,6 +52,7 @@ PREPROCESSING_REPORT_FIGURES_OUTPUT = REPORT_ROOT / "preprocessing" / "figures"
 
 
 def main() -> None:
+    """Generate dataset-level statistics, figures, and qualitative checks."""
     format_logger()
 
     parser = argparse.ArgumentParser(

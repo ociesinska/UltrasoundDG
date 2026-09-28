@@ -16,17 +16,20 @@ from ultrasound_dg.data.sample import UltrasoundSample
 
 class StubAdapter(DatasetAdapter):
     def samples(self) -> list[UltrasoundSample]:
+        """Return no samples because this stub only decodes test masks."""
         return []
 
     def decode_mask(self, path: Path) -> np.ndarray:
+        """Decode any positive grayscale value as foreground."""
         with Image.open(path) as image:
             return (np.asarray(image) > 0).astype(np.uint8)
 
     def validate_sample(self, sample: UltrasoundSample) -> None:
-        pass
+        """Accept all synthetic samples used by the dataset test."""
 
 
 def test_dataset_returns_model_ready_tensors(tmp_path: Path) -> None:
+    """Ensure dataset items have model-ready shapes, dtypes, and metadata."""
     image = np.full((4, 6, 3), fill_value=128, dtype=np.uint8)
     mask = np.zeros((4, 6), dtype=np.uint8)
     mask[1:3, 2:4] = 255

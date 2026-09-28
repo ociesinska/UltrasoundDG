@@ -2,6 +2,7 @@ import torch
 
 
 def logits_to_predictions(logits: torch.Tensor, threshold: float = 0.5) -> torch.Tensor:
+    """Convert logits to binary masks using a probability threshold."""
 
     probabilities = torch.sigmoid(logits)
 
@@ -11,6 +12,7 @@ def logits_to_predictions(logits: torch.Tensor, threshold: float = 0.5) -> torch
 def dice_score(
     predictions: torch.Tensor, targets: torch.Tensor, smooth: float = 1e-6
 ) -> torch.Tensor:
+    """Compute one smoothed Dice score per image."""
 
     dims = tuple(
         range(1, predictions.ndim)
@@ -30,6 +32,7 @@ def dice_score(
 def iou_score(
     predictions: torch.Tensor, targets: torch.Tensor, smooth: float = 1e-6
 ) -> torch.Tensor:
+    """Compute one smoothed intersection-over-union score per image."""
 
     dims = tuple(range(1, predictions.ndim))
 
@@ -47,6 +50,7 @@ def recall_score(
     targets: torch.Tensor,
     smooth: float = 1e-6,
 ) -> torch.Tensor:
+    """Compute pixel-level recall independently for each image."""
 
     dims = tuple(range(1, predictions.ndim))
     true_positives = (predictions * targets).sum(dim=dims)
@@ -105,6 +109,7 @@ def print_metrics(
     split_name: str,
     metrics: dict[str, float],
 ) -> None:
+    """Print the standard segmentation metric set for one data split."""
     print(f"\n{split_name}")
     print(f"  loss:                 {metrics['loss']:.4f}")
     print(f"  dice:                 {metrics['dice']:.4f}")

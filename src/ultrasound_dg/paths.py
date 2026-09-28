@@ -22,4 +22,5 @@ def get_checkpoint_dir(
     experiment_name: str,
     seed: int,
 ) -> Path:
+    """Return the seed-specific checkpoint directory for an experiment."""
     return CHECKPOINT_ROOT / experiment_name / f"seed_{seed}"

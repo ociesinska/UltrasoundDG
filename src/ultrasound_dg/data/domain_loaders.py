@@ -17,6 +17,7 @@ def create_domain_loaders(
     batch_size: int,
     num_workers: int,
 ) -> dict[str, DataLoader]:
+    """Create a deterministic evaluation DataLoader for each requested domain."""
 
     loaders = {}
 

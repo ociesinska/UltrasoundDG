@@ -8,6 +8,7 @@ ConfigT = TypeVar("ConfigT", bound=BaseModel)
 
 
 def load_config(path: Path, schema: type[ConfigT]) -> ConfigT:
+    """Load a YAML mapping and validate it against a Pydantic schema."""
     with path.open(encoding="utf-8") as file:
         data = yaml.safe_load(file)
 

@@ -2,6 +2,7 @@ import torch
 
 
 def resolve_device(requested: str = "auto") -> torch.device:
+    """Resolve an explicit device or choose CUDA, MPS, then CPU automatically."""
     if requested == "auto":
         if torch.cuda.is_available():
             return torch.device("cuda")

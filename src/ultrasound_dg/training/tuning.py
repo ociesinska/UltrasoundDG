@@ -32,6 +32,13 @@ def run_baseline_tuning_trial(
     source_val_domain_loaders: dict[str, DataLoader],
     device: torch.device,
 ) -> float:
+    """Train and evaluate one Optuna hyperparameter trial.
+
+    Learning rate and weight decay are sampled from the configured categorical
+    grid. After each epoch, the objective reports macro-averaged source-domain
+    lesion Dice for pruning. The best epoch and per-domain metrics are stored
+    as trial metadata, and the best macro Dice is returned for optimization.
+    """
 
     learning_rate = trial.suggest_categorical(
         "learning_rate",

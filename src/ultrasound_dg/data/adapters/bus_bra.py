@@ -13,6 +13,7 @@ from ultrasound_dg.data.validation import validate_image_mask_pairing
 def parse_bus_bra_filename(
     path: Path, option: Literal["usg_image", "mask"]
 ) -> tuple[str, str]:
+    """Extract patient identifier and laterality from a BUS-BRA filename."""
     stem = path.stem
     case_part, side = stem.split("-", maxsplit=1)
 
@@ -34,6 +35,7 @@ def parse_bus_bra_filename(
 
 
 def load_bus_bra_metadata(path: Path) -> pd.DataFrame:
+    """Load BUS-BRA metadata and index validated rows by image identifier."""
     metadata = pd.read_csv(path)
 
     required_columns = {
@@ -62,6 +64,7 @@ def load_bus_bra_metadata(path: Path) -> pd.DataFrame:
 
 class BusBraAdapter(DatasetAdapter):
     def samples(self) -> list[UltrasoundSample]:
+        """Pair BUS-BRA images and masks and attach clinical metadata."""
         images_path = self.root / "Images"
         masks_path = self.root / "Masks"
         metadata_path = self.root / "bus_data.csv"
@@ -148,6 +151,7 @@ class BusBraAdapter(DatasetAdapter):
         return samples
 
     def decode_mask(self, path: Path) -> np.ndarray:
+        """Decode a one-bit BUS-BRA mask into a binary integer array."""
         with Image.open(path) as image:
             if image.mode != "1":
                 raise ValueError(
@@ -159,6 +163,7 @@ class BusBraAdapter(DatasetAdapter):
         return mask.astype(np.uint8)
 
     def validate_sample(self, sample: UltrasoundSample) -> None:
+        """Require a non-empty BUS-BRA mask aligned with its image."""
         mask = self.decode_mask(sample.mask_path)
 
         if not mask.any():

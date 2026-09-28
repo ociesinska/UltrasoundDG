@@ -16,12 +16,14 @@ EXCLUDED_PATIENTS = {
 
 
 def parse_bus_uclm_filename(path: Path) -> tuple[str, str]:
+    """Extract patient and scan identifiers from a BUS-UCLM filename."""
     patient_id, scan_id = path.stem.split("_", maxsplit=1)
 
     return patient_id, scan_id
 
 
 def load_bus_uclm_metadata(path: Path) -> pd.DataFrame:
+    """Load semicolon-delimited BUS-UCLM metadata and validate its schema."""
     metadata = pd.read_csv(path, sep=";")
 
     required_columns = {
@@ -46,6 +48,7 @@ def load_bus_uclm_metadata(path: Path) -> pd.DataFrame:
 
 class BusUclmAdapter(DatasetAdapter):
     def samples(self) -> list[UltrasoundSample]:
+        """Create BUS-UCLM samples while excluding known invalid patients."""
 
         images_path = self.root / "images"
         masks_path = self.root / "masks"
@@ -117,6 +120,7 @@ class BusUclmAdapter(DatasetAdapter):
         return samples
 
     def decode_mask(self, path: Path) -> np.ndarray:
+        """Combine green benign and red malignant annotations into one mask."""
         with Image.open(path) as image:
             if image.mode != "RGB":
                 raise ValueError(
@@ -131,6 +135,7 @@ class BusUclmAdapter(DatasetAdapter):
         return (benign | malignant).astype(np.uint8)
 
     def validate_sample(self, sample: UltrasoundSample) -> None:
+        """Validate BUS-UCLM mask alignment and diagnosis consistency."""
         mask = self.decode_mask(sample.mask_path)
 
         with Image.open(sample.image_path) as image:

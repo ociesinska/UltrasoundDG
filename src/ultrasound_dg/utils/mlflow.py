@@ -32,6 +32,7 @@ def setup_mlflow(
 
 
 def log_config(cfg: Any, name: str) -> None:
+    """Log a Pydantic configuration as a JSON artifact in the active run."""
     mlflow.log_dict(cfg.model_dump(mode="json"), f"{name}.json")
 
 

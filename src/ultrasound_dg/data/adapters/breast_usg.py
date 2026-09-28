@@ -9,6 +9,7 @@ from ultrasound_dg.data.sample import UltrasoundSample
 
 
 def load_breast_usg_metadata(path: Path) -> pd.DataFrame:
+    """Load BrEaST clinical metadata and validate its required columns."""
     metadata = pd.read_excel(
         path,
         sheet_name="BrEaST-Lesions-USG clinical dat",
@@ -39,6 +40,7 @@ def load_breast_usg_metadata(path: Path) -> pd.DataFrame:
 
 class BreastUSGAdapter(DatasetAdapter):
     def samples(self) -> list[UltrasoundSample]:
+        """Create BrEaST samples by combining the workbook with image files."""
         data_path = self.root
         metadata_path = self.root.with_suffix(".xlsx")
 
@@ -120,6 +122,7 @@ class BreastUSGAdapter(DatasetAdapter):
         return samples
 
     def decode_mask(self, path: Path) -> np.ndarray:
+        """Decode the alpha channel of an RGBA BrEaST mask as binary."""
         with Image.open(path) as image:
             if image.mode != "RGBA":
                 raise ValueError(
@@ -131,6 +134,7 @@ class BreastUSGAdapter(DatasetAdapter):
         return (mask[:, :, 3] > 0).astype(np.uint8)
 
     def validate_sample(self, sample: UltrasoundSample) -> None:
+        """Validate BrEaST mask availability, shape, and lesion consistency."""
         with Image.open(sample.image_path) as image:
             image_shape = np.asarray(image).shape[:2]
 

@@ -12,6 +12,7 @@ IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
 
 def to_grayscale(image: np.ndarray) -> np.ndarray:
+    """Convert an image array to one grayscale channel."""
     if image.ndim == 2:
         return image
 
@@ -22,10 +23,12 @@ def to_grayscale(image: np.ndarray) -> np.ndarray:
 
 
 def normalize_imagenet(image: np.ndarray) -> np.ndarray:
+    """Normalize an RGB float image using ImageNet channel statistics."""
     return (image - IMAGENET_MEAN) / IMAGENET_STD
 
 
 def denormalize_imagenet(image: np.ndarray) -> np.ndarray:
+    """Undo ImageNet normalization and clip values to the display range."""
     return np.clip(image * IMAGENET_STD + IMAGENET_MEAN, 0.0, 1.0)
 
 
@@ -34,6 +37,7 @@ class SegmentationPreprocessor:
     config: SegmentationPreprocessingConfig
 
     def __call__(self, image: np.ndarray, mask: np.ndarray) -> dict[str, np.ndarray]:
+        """Prepare an aligned image-mask pair for a pretrained RGB encoder."""
 
         image = to_grayscale(image)
 
@@ -51,6 +55,7 @@ class SegmentationPreprocessor:
     def _resize_and_pad(
         self, image: np.ndarray, mask: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
+        """Resize with preserved aspect ratio and symmetrically pad to target size."""
         height, width = image.shape[:2]
 
         scale = min(self.config.target_size / height, self.config.target_size / width)

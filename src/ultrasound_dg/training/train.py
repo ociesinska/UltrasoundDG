@@ -10,6 +10,7 @@ def train_one_epoch(
     loss_fn: nn.Module,
     device: torch.device,
 ) -> float:
+    """Run one optimization epoch and return sample-weighted mean loss."""
 
     model.train()
 
@@ -39,6 +40,7 @@ def train_one_epoch(
 def evaluate_loss(
     model: nn.Module, loader: DataLoader, loss_fn: nn.Module, device: torch.device
 ) -> float:
+    """Compute sample-weighted mean loss without updating model parameters."""
     model.eval()
 
     total_loss = 0.0

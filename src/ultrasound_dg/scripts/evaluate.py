@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
+    """Evaluate a checkpoint on source validation and OOD development data."""
     format_logger()
 
     parser = argparse.ArgumentParser(

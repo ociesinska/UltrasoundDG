@@ -18,15 +18,18 @@ class UltrasoundSegmentationDataset(Dataset):
         adapters: dict[str, DatasetAdapter],
         preprocessor: SegmentationPreprocessor,
     ):
+        """Initialize dataset access from a manifest and domain adapters."""
         self.manifest = manifest.reset_index(drop=True)
         self.project_root = project_root
         self.adapters = adapters
         self.preprocessor = preprocessor
 
     def __len__(self) -> int:
+        """Return the number of manifest samples."""
         return len(self.manifest)
 
     def __getitem__(self, idx: int) -> dict:
+        """Load and preprocess one image-mask pair with sample metadata."""
         row = self.manifest.iloc[idx]
 
         image_path = self.project_root / row["image_path"]

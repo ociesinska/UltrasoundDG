@@ -16,6 +16,12 @@ def split_by_patient(
     stratify_by: str | None,
     seed: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split samples into train and validation without patient leakage.
+
+    When stratification is requested, a single fold from a shuffled
+    ``StratifiedGroupKFold`` is used so diagnosis balance is considered while
+    keeping every patient's images in exactly one partition.
+    """
     if df["patient_id"].isna().any():
         raise ValueError("Patient-level split requires a patient_id for every sample.")
 
@@ -64,6 +70,7 @@ def split_by_sample(
     stratify_by: str | None,
     seed: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split independent samples into reproducible train and validation sets."""
     stratify = None
     if stratify_by is not None:
         _require_column(df, stratify_by)
@@ -86,6 +93,12 @@ def create_development_protocol(
     manifest: pd.DataFrame,
     config: DevelopmentConfig,
 ) -> dict[str, pd.DataFrame]:
+    """Create source train/validation, OOD development, and final-test partitions.
+
+    Each source domain is split with its configured patient- or sample-level
+    strategy. Domains explicitly marked as excluded are omitted from all
+    returned partitions, and the final partition coverage is validated.
+    """
     _validate_protocol_config(manifest, config)
 
     train_parts: list[pd.DataFrame] = []
@@ -140,6 +153,7 @@ def create_development_protocol(
 
 
 def _fold_count(validation_fraction: float) -> int:
+    """Convert a reciprocal validation fraction into a valid fold count."""
     inverse_fraction = 1.0 / validation_fraction
     n_splits = round(inverse_fraction)
 
@@ -159,6 +173,7 @@ def _fold_count(validation_fraction: float) -> int:
 
 
 def _require_column(df: pd.DataFrame, column: str) -> None:
+    """Raise a clear error when a required DataFrame column is absent."""
     if column not in df.columns:
         raise ValueError(f"Split column is missing from the manifest: {column}")
 
@@ -167,6 +182,7 @@ def _validate_protocol_config(
     manifest: pd.DataFrame,
     config: DevelopmentConfig,
 ) -> None:
+    """Validate domain assignments and source-specific split configuration."""
     _require_column(manifest, "source_domain")
     _require_column(manifest, "sample_id")
 
@@ -221,6 +237,7 @@ def _validate_protocol_partitions(
     protocol: dict[str, pd.DataFrame],
     excluded_domains: set[str],
 ) -> None:
+    """Ensure protocol partitions are disjoint and cover all non-excluded samples."""
     manifest_ids = manifest["sample_id"]
     expected_ids = manifest.loc[
         ~manifest["source_domain"].isin(excluded_domains), "sample_id"

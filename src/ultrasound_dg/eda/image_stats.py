@@ -12,6 +12,12 @@ def compute_image_stats(
     manifest: pd.DataFrame,
     project_root: Path,
 ) -> pd.DataFrame:
+    """Compute per-image geometry, intensity, storage, and color statistics.
+
+    Intensity statistics are measured on a grayscale representation, while
+    channel-spread and saturation heuristics use RGB data to describe genuine
+    color content without treating three-channel grayscale storage as color.
+    """
     rows = []
 
     for _, row in manifest.iterrows():
@@ -92,6 +98,7 @@ def compute_image_stats(
 def image_stats_summary(
     image_stats: pd.DataFrame,
 ) -> pd.DataFrame:
+    """Aggregate per-image geometry and appearance statistics by domain."""
     summary = image_stats.groupby("source_domain").agg(
         image_count=("sample_id", "size"),
         # Image geometry
@@ -181,6 +188,11 @@ def doppler_stats_summary(
     manifest: pd.DataFrame,
     threshold: float = 0.01,
 ) -> pd.DataFrame:
+    """Compare the strong-color heuristic with available Doppler metadata.
+
+    The returned table summarizes color fractions and the number of images
+    exceeding ``threshold`` separately for Doppler and non-Doppler scans.
+    """
     doppler_stats = image_stats.merge(
         manifest[["sample_id", "doppler"]],
         on="sample_id",

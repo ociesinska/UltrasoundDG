@@ -14,6 +14,7 @@ from ultrasound_dg.data.preprocessing import (
 
 
 def test_preprocessing_config_loads_from_yaml(tmp_path: Path) -> None:
+    """Ensure preprocessing configuration is validated from YAML."""
     config_path = tmp_path / "preprocessing.yaml"
     config_path.write_text("version: test\ntarget_size: 128\n")
 
@@ -24,6 +25,7 @@ def test_preprocessing_config_loads_from_yaml(tmp_path: Path) -> None:
 
 
 def test_to_grayscale_returns_two_dimensional_uint8_image() -> None:
+    """Ensure RGB conversion produces a two-dimensional uint8 image."""
     rgb = np.array(
         [
             [[255, 0, 0], [0, 255, 0]],
@@ -39,6 +41,7 @@ def test_to_grayscale_returns_two_dimensional_uint8_image() -> None:
 
 
 def test_preprocessor_resizes_pads_and_preserves_binary_mask() -> None:
+    """Ensure preprocessing preserves mask labels and normalizes image pixels."""
     image = np.full((2, 4, 3), fill_value=255, dtype=np.uint8)
     mask = np.array(
         [

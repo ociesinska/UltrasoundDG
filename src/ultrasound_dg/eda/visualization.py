@@ -37,6 +37,7 @@ DIAGNOSIS_COLORS = {
 
 
 def _style_axes(ax: Axes) -> None:
+    """Apply the shared grid and spine style to an axis."""
     ax.grid(axis="y", alpha=0.25)
     ax.set_axisbelow(True)
     ax.spines["top"].set_visible(False)
@@ -47,6 +48,7 @@ def _save_figure(
     figure: Figure,
     output_path: Path | None,
 ) -> Figure:
+    """Optionally save a figure and always return it to the caller."""
     if output_path is not None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         figure.savefig(
@@ -63,6 +65,7 @@ def _draw_violin_with_box(
     data: pd.DataFrame,
     value_column: str,
 ) -> None:
+    """Draw domain-colored violin distributions with compact boxplots."""
     domains = [
         domain
         for domain in DOMAIN_ORDER
@@ -126,6 +129,7 @@ def plot_diagnosis_distribution(
     manifest: pd.DataFrame,
     output_path: Path | None = None,
 ) -> Figure:
+    """Plot normalized diagnosis proportions as stacked bars by domain."""
     diagnosed_samples = manifest.dropna(subset=["source_domain", "diagnosis"])
 
     diagnosis_ratios = pd.crosstab(
@@ -225,6 +229,7 @@ def plot_images_per_patient(
     manifest: pd.DataFrame,
     output_path: Path | None = None,
 ) -> Figure:
+    """Plot per-patient image counts and mark domains without patient IDs."""
     images_per_patient = (
         manifest.dropna(subset=["patient_id"])
         .groupby(
@@ -334,6 +339,7 @@ def plot_lesion_fraction(
     mask_stats: pd.DataFrame,
     output_path: Path | None = None,
 ) -> Figure:
+    """Plot lesion-area distributions for samples with non-empty masks."""
     lesion_stats = mask_stats.loc[mask_stats["lesion_area_pixels"] > 0].copy()
 
     lesion_stats["lesion_percentage"] = lesion_stats["lesion_fraction"] * 100
@@ -359,6 +365,7 @@ def plot_brightness_and_contrast(
     image_stats: pd.DataFrame,
     output_path: Path | None = None,
 ) -> Figure:
+    """Plot domain-wise brightness and contrast distributions side by side."""
     figure, axes = plt.subplots(
         nrows=1,
         ncols=2,

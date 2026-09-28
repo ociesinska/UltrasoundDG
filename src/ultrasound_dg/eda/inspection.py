@@ -20,6 +20,7 @@ def _format_value(
     value,
     precision: int = 2,
 ) -> str:
+    """Format a scalar for inspection labels, preserving missing values."""
     if pd.isna(value):
         return "N/A"
 
@@ -30,6 +31,7 @@ def _format_value(
 
 
 def _format_fraction(value) -> str:
+    """Format a fractional scalar as a percentage for inspection labels."""
     if pd.isna(value):
         return "N/A"
 
@@ -41,6 +43,11 @@ def _load_image_and_mask(
     project_root: Path,
     adapters: Mapping[str, DatasetAdapter],
 ) -> tuple[np.ndarray, np.ndarray]:
+    """Load an inspection image and its validated binary mask.
+
+    Samples without a mask path receive an empty mask. The function verifies
+    binary mask values and spatial alignment before returning the pair.
+    """
     image_path = project_root / Path(row["image_path"])
     image = load_rgb_image(image_path)
 
@@ -74,6 +81,7 @@ def _draw_mask_overlay(
     image: np.ndarray,
     mask: np.ndarray,
 ) -> None:
+    """Draw an image with a translucent lesion mask and contour."""
     ax.imshow(image)
 
     if mask.any():
@@ -102,6 +110,7 @@ def prepare_inspection_table(
     image_stats: pd.DataFrame,
     mask_stats: pd.DataFrame,
 ) -> pd.DataFrame:
+    """Combine manifest metadata with per-image and per-mask statistics."""
     mask_metrics = mask_stats[
         [
             "sample_id",
@@ -132,6 +141,7 @@ def select_extreme_per_domain(
     samples_per_domain: int,
     largest: bool,
 ) -> pd.DataFrame:
+    """Select the largest or smallest values independently within each domain."""
     domain_selections: list[pd.DataFrame] = []
 
     for _, domain_data in data.groupby(
@@ -156,6 +166,12 @@ def select_inspection_cases(
     inspection_table: pd.DataFrame,
     samples_per_domain: int = 5,
 ) -> pd.DataFrame:
+    """Select domain-balanced cases for qualitative review.
+
+    Cases cover lesion-size extremes, masks with multiple components, and
+    brightness extremes. A sample may remain more than once when selected for
+    different inspection reasons.
+    """
     selections = []
 
     largest_lesions = select_extreme_per_domain(
@@ -219,6 +235,7 @@ def display_inspection_cases(
     output_dir: Path | None = None,
     show: bool = True,
 ) -> list[Figure]:
+    """Create detailed image, mask, overlay, and metadata inspection grids."""
     figures: list[Figure] = []
 
     grouped_cases = selection_cases.groupby(
@@ -333,6 +350,7 @@ def _brightness_extremes_figure(
     project_root: Path,
     adapters: Mapping[str, DatasetAdapter],
 ) -> Figure:
+    """Create a compact darkest-versus-brightest comparison for every domain."""
     figure, axes = plt.subplots(
         nrows=len(DOMAIN_ORDER),
         ncols=2,
@@ -383,6 +401,7 @@ def _lesion_size_extremes_figure(
     project_root: Path,
     adapters: Mapping[str, DatasetAdapter],
 ) -> Figure:
+    """Create a smallest-versus-largest lesion comparison for every domain."""
     lesion_cases = inspection_table[inspection_table["lesion_fraction"] > 0]
 
     figure, axes = plt.subplots(
@@ -434,6 +453,7 @@ def _multi_component_figure(
     project_root: Path,
     adapters: Mapping[str, DatasetAdapter],
 ) -> Figure:
+    """Show representative multi-component masks from relevant domains."""
     source_domains = ["busi", "bus_uclm"]
     figure, axes = plt.subplots(
         nrows=len(source_domains),
@@ -490,6 +510,7 @@ def _multi_component_figure(
 def select_representative_lesion_per_domain(
     inspection_table: pd.DataFrame,
 ) -> pd.DataFrame:
+    """Select the lesion case nearest the domain median lesion fraction."""
     selections: list[pd.DataFrame] = []
     lesion_cases = inspection_table[inspection_table["lesion_fraction"] > 0]
 
@@ -519,6 +540,11 @@ def plot_preprocessing_v1_examples(
     preprocessor: SegmentationPreprocessor,
     output_path: Path,
 ) -> Figure:
+    """Visualize preprocessing stages for one representative lesion per domain.
+
+    The figure compares the original RGB image, grayscale conversion,
+    denormalized resized input, and the aligned processed-mask overlay.
+    """
 
     representative_samples = select_representative_lesion_per_domain(
         inspection_table=inspection_table
@@ -631,6 +657,7 @@ def save_qualitative_report_figures(
     adapters: Mapping[str, DatasetAdapter],
     output_dir: Path,
 ) -> list[Path]:
+    """Generate and save the compact qualitative figures used in the report."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     figures = {

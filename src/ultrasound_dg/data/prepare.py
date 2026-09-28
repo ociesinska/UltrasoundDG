@@ -32,6 +32,7 @@ def samples_to_manifest(
     samples: list[UltrasoundSample],
     project_root: Path,
 ) -> pd.DataFrame:
+    """Convert normalized samples into a manifest with relative file paths."""
     rows = []
 
     for sample in samples:
@@ -67,6 +68,7 @@ def samples_to_manifest(
 
 
 def load_manifest(path: Path) -> pd.DataFrame:
+    """Load a manifest CSV using stable nullable column dtypes."""
     return pd.read_csv(
         path,
         dtype={
@@ -80,6 +82,7 @@ def validate_manifest(
     manifest: pd.DataFrame,
     project_root: Path,
 ) -> None:
+    """Validate manifest schema, labels, uniqueness, and referenced files."""
     errors: list[str] = []
 
     missing_columns = REQUIRED_MANIFEST_COLUMNS - set(manifest.columns)

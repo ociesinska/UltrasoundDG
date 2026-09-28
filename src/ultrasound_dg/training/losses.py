@@ -10,6 +10,7 @@ class BCEDiceLoss(nn.Module):
         dice_weight: float = 1.0,
         smooth: float = 1e-6,
     ):
+        """Configure the relative BCE and soft-Dice contributions."""
 
         super().__init__()
 
@@ -18,6 +19,7 @@ class BCEDiceLoss(nn.Module):
         self.smooth = smooth
 
     def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        """Return the weighted sum of BCE-with-logits and soft-Dice loss."""
 
         bce = F.binary_cross_entropy_with_logits(logits, targets)
 
@@ -26,6 +28,7 @@ class BCEDiceLoss(nn.Module):
         return self.bce_weight * bce + self.dice_weight * dice
 
     def _dice_loss(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        """Compute batch-mean soft-Dice loss directly from logits."""
 
         probabilities = torch.sigmoid(logits)
         dims = tuple(range(1, probabilities.ndim))

@@ -8,6 +8,7 @@ from torch import nn
 def read_checkpoint(
     path: Path, map_location: str | torch.device = "cpu"
 ) -> dict[str, Any]:
+    """Read checkpoint contents without mutating a model or optimizer."""
     if not path.is_file():
         raise FileNotFoundError(f"Checkpoint does not exist: {path}.")
 
@@ -19,6 +20,7 @@ def restore_checkpoint(
     model: nn.Module,
     optimizer: torch.optim.Optimizer | None = None,
 ) -> None:
+    """Restore model weights and, when supplied, optimizer state in place."""
 
     model.load_state_dict(checkpoint["model_state_dict"])
 
@@ -32,6 +34,7 @@ def load_checkpoint(
     optimizer: torch.optim.Optimizer | None,
     device: torch.device,
 ) -> dict:
+    """Read a checkpoint, restore supplied objects, and return its metadata."""
 
     checkpoint = read_checkpoint(path=path, map_location=device)
 
@@ -48,6 +51,7 @@ def save_checkpoint(
     metrics: dict[str, float],
     configs: dict[str, Any],
 ) -> None:
+    """Persist training state, validation metrics, and experiment configuration."""
 
     path.parent.mkdir(parents=True, exist_ok=True)
 
