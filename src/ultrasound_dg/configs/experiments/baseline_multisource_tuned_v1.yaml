@@ -1,9 +1,10 @@
-name: baseline_single_busi_v1
+name: baseline_tuned_v1
 
 development:
   seed: 42
 
   source_domains:
+    - bus_bra
     - busi
 
   ood_development_domain:
@@ -12,12 +13,15 @@ development:
   final_test_domain:
     - breast_usg
 
-  excluded_domains:
-    - bus_bra
+  excluded_domains: []
 
   source_validation_fraction: 0.2
 
   splitting:
+    bus_bra:
+      strategy: patient
+      stratify_by: diagnosis
+
     busi:
       strategy: sample
       stratify_by: diagnosis

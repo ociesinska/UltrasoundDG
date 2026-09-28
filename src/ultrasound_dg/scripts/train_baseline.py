@@ -53,6 +53,7 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
+    """Train, checkpoint, and log a configured segmentation baseline."""
     format_logger()
 
     parser = argparse.ArgumentParser(
@@ -72,6 +73,13 @@ def main() -> None:
         default=None,
         help="Optional MLflow run name.",
     )
+
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Optional training-seed override.",
+    )
     args = parser.parse_args()
 
     manifest = load_manifest(MANIFEST_PATH)
@@ -83,7 +91,14 @@ def main() -> None:
     }
 
     experiment_config = load_config(args.experiment_config, ExperimentConfig)
+    if args.seed is not None:
+        training_config = experiment_config.training.model_copy(
+            update={"seed": args.seed}
+        )
 
+        experiment_config = experiment_config.model_copy(
+            update={"training": training_config}
+        )
     development_config = experiment_config.development
     preprocessing_config = experiment_config.preprocessing
     training_config = experiment_config.training
