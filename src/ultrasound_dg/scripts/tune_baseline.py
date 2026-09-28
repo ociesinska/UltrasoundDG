@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
+    """Tune baseline hyperparameters and save the best experiment config."""
     format_logger()
 
     parser = argparse.ArgumentParser(
@@ -216,7 +217,9 @@ def main() -> None:
             }
         )
 
-        best_config_path = TUNING_OUTPUT_ROOT / f"{tuning_run_name}_best_train_cfg.yaml"
+        best_config_path = (
+            TUNING_OUTPUT_ROOT / f"{tuning_run_name}_best_experiment_config.yaml"
+        )
 
         with best_config_path.open("w") as file:
             yaml.safe_dump(
