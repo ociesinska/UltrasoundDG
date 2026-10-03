@@ -41,3 +41,5 @@ training:
   weight_decay: 0.0
   optimizer: AdamW
   decision_threshold: 0.5
+  sampling_strategy: natural
+  checkpoint_selection_tolerance: 0.01

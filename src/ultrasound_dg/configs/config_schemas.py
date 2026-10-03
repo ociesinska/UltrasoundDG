@@ -41,6 +41,8 @@ class TrainingConfig(BaseModel):
     learning_rate: float = Field(gt=0)
     weight_decay: float = Field(ge=0)
     decision_threshold: float = Field(gt=0, lt=1)
+    sampling_strategy: Literal["natural", "domain_balanced"] = "natural"
+    checkpoint_selection_tolerance: float = Field(default=0.01, ge=0, le=1)
 
 
 class TuningConfig(BaseModel):
@@ -48,6 +50,7 @@ class TuningConfig(BaseModel):
 
     study_name: str
     mlflow_experiment_name: str
+    output_experiment_name: str | None = None
     epochs: int = Field(gt=0)
     learning_rates: list[float] = Field(min_length=1)
     weight_decays: list[float] = Field(min_length=1)

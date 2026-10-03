@@ -37,3 +37,5 @@ training:
   learning_rate: 0.0001
   weight_decay: 0.0
   decision_threshold: 0.5
+  sampling_strategy: natural
+  checkpoint_selection_tolerance: 0.01

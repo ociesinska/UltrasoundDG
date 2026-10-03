@@ -1,6 +1,8 @@
 import argparse
 import logging
 from pathlib import Path
+from shutil import copy2
+from tempfile import TemporaryDirectory
 
 import mlflow
 import torch
@@ -22,6 +24,7 @@ from ultrasound_dg.data.prepare import load_manifest
 from ultrasound_dg.data.preprocessing import (
     SegmentationPreprocessor,
 )
+from ultrasound_dg.data.samplers import create_domain_balanced_sampler
 from ultrasound_dg.data.splits import create_development_protocol
 from ultrasound_dg.models.unet import create_unet
 from ultrasound_dg.paths import (
@@ -29,6 +32,11 @@ from ultrasound_dg.paths import (
     PROJECT_ROOT,
     RAW_DATA_ROOT,
     get_checkpoint_dir,
+)
+from ultrasound_dg.training.checkpoint_selection import (
+    CheckpointCandidate,
+    eligible_checkpoint_candidates,
+    select_checkpoint_candidate,
 )
 from ultrasound_dg.training.checkpoints import (
     load_checkpoint,
@@ -134,12 +142,22 @@ def main() -> None:
     train_generator = torch.Generator()
     train_generator.manual_seed(training_config.seed)
 
+    train_sampler = None
+    shuffle_train = True
+
+    if training_config.sampling_strategy == "domain_balanced":
+        train_sampler = create_domain_balanced_sampler(
+            train_manifest=protocol["train"], generator=train_generator
+        )
+        shuffle_train = False
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=training_config.train_batch_size,
-        shuffle=True,
+        shuffle=shuffle_train,
+        sampler=train_sampler,
         num_workers=training_config.num_workers,
-        generator=train_generator,
+        generator=train_generator if train_sampler is None else None,
     )
 
     source_val_loader = DataLoader(
@@ -195,73 +213,71 @@ def main() -> None:
                 "seed": training_config.seed,
                 "input_size": preprocessing_config.target_size,
                 "device": str(device),
+                "sampling_strategy": training_config.sampling_strategy,
+                "checkpoint_selection": "lesion_dice_then_normal_fp",
+                "checkpoint_selection_tolerance": training_config.checkpoint_selection_tolerance,
             }
         )
 
-        best_macro_source_val_lesion_dice = float("-inf")
-        for epoch in range(training_config.epochs):
-            logger.info(
-                "Starting epoch %d/%d",
-                epoch + 1,
-                training_config.epochs,
-            )
+        checkpoint_candidates: list[CheckpointCandidate] = []
+        best_observed_macro_dice = float("-inf")
 
-            train_loss = train_one_epoch(
-                model=model,
-                loader=train_loader,
-                optimizer=optimizer,
-                loss_fn=loss_fn,
-                device=device,
-            )
+        with TemporaryDirectory(
+            prefix="ultrasound_dg_checkpoint_selection_"
+        ) as candidate_dir:
+            candidate_dir = Path(candidate_dir)
 
-            source_val_metrics = evaluate_loader(
-                model=model,
-                loader=source_val_loader,
-                loss_fn=loss_fn,
-                device=device,
-                threshold=training_config.decision_threshold,
-            )
+            for epoch in range(training_config.epochs):
+                logger.info(
+                    "Starting epoch %d/%d",
+                    epoch + 1,
+                    training_config.epochs,
+                )
 
-            source_val_metrics_by_domain = {
-                domain: evaluate_loader(
+                train_loss = train_one_epoch(
                     model=model,
-                    loader=loader,
+                    loader=train_loader,
+                    optimizer=optimizer,
+                    loss_fn=loss_fn,
+                    device=device,
+                )
+
+                source_val_metrics = evaluate_loader(
+                    model=model,
+                    loader=source_val_loader,
                     loss_fn=loss_fn,
                     device=device,
                     threshold=training_config.decision_threshold,
                 )
-                for domain, loader in source_val_domain_loaders.items()
-            }
 
-            macro_source_val_lesion_dice = macro_average_domain_metric(
-                source_val_metrics_by_domain,
-                metric_name="lesion_dice",
-            )
+                source_val_metrics_by_domain = {
+                    domain: evaluate_loader(
+                        model=model,
+                        loader=loader,
+                        loss_fn=loss_fn,
+                        device=device,
+                        threshold=training_config.decision_threshold,
+                    )
+                    for domain, loader in source_val_domain_loaders.items()
+                }
 
-            checkpoint_configs = experiment_config.model_dump(mode="json")
+                macro_source_val_lesion_dice = macro_average_domain_metric(
+                    source_val_metrics_by_domain,
+                    metric_name="lesion_dice",
+                )
 
-            checkpoint_metrics = {
-                **source_val_metrics,
-                "macro_source_lesion_dice": macro_source_val_lesion_dice,
-            }
+                checkpoint_configs = experiment_config.model_dump(mode="json")
 
-            for domain, metrics in source_val_metrics_by_domain.items():
-                checkpoint_metrics[f"{domain}_lesion_dice"] = metrics["lesion_dice"]
+                checkpoint_metrics = {
+                    **source_val_metrics,
+                    "macro_source_lesion_dice": macro_source_val_lesion_dice,
+                }
 
-            save_checkpoint(
-                path=checkpoint_dir / "last.pt",
-                model=model,
-                optimizer=optimizer,
-                epoch=epoch + 1,
-                metrics=checkpoint_metrics,
-                configs=checkpoint_configs,
-            )
-
-            if macro_source_val_lesion_dice > best_macro_source_val_lesion_dice:
-                best_macro_source_val_lesion_dice = macro_source_val_lesion_dice
+                for domain, metrics in source_val_metrics_by_domain.items():
+                    checkpoint_metrics[f"{domain}_lesion_dice"] = metrics["lesion_dice"]
 
                 save_checkpoint(
-                    path=checkpoint_dir / "best_source_val.pt",
+                    path=checkpoint_dir / "last.pt",
                     model=model,
                     optimizer=optimizer,
                     epoch=epoch + 1,
@@ -269,35 +285,81 @@ def main() -> None:
                     configs=checkpoint_configs,
                 )
 
-            logger.info(
-                f"Epoch {epoch + 1} | "
-                f"train_loss={train_loss:.4f} | "
-                f"source_val_loss={source_val_metrics['loss']:.4f} | "
-                f"source_val_dice={source_val_metrics['dice']:.4f} | "
-                f"macro_source_lesion_dice="
-                f"{macro_source_val_lesion_dice:.4f}"
-            )
+                best_observed_macro_dice = max(
+                    best_observed_macro_dice, macro_source_val_lesion_dice
+                )
+                minimum_candidate_dice = (
+                    best_observed_macro_dice
+                    - training_config.checkpoint_selection_tolerance
+                )
 
-            domain_mlflow_metrics = {
-                f"source_val_{domain}_lesion_dice": float(metrics["lesion_dice"])
-                for domain, metrics in source_val_metrics_by_domain.items()
-            }
-            mlflow.log_metrics(
-                {
-                    "train_loss": float(train_loss),
-                    "source_val_loss": float(source_val_metrics["loss"]),
-                    "source_val_dice": float(source_val_metrics["dice"]),
-                    "source_val_lesion_dice": float(source_val_metrics["lesion_dice"]),
-                    "source_val_lesion_recall": float(
-                        source_val_metrics["lesion_recall"]
-                    ),
-                    "source_val_lesion_precision": float(
-                        source_val_metrics["lesion_precision"]
-                    ),
-                    "macro_source_lesion_dice": float(macro_source_val_lesion_dice),
-                    **domain_mlflow_metrics,
-                },
-                step=epoch + 1,
+                if macro_source_val_lesion_dice >= minimum_candidate_dice:
+                    candidate_path = candidate_dir / f"epoch_{epoch + 1}.pt"
+
+                    save_checkpoint(
+                        path=candidate_path,
+                        model=model,
+                        optimizer=optimizer,
+                        epoch=epoch + 1,
+                        metrics=checkpoint_metrics,
+                        configs=checkpoint_configs,
+                    )
+
+                    checkpoint_candidates.append(
+                        CheckpointCandidate(
+                            path=candidate_path,
+                            epoch=epoch + 1,
+                            macro_lesion_dice=macro_source_val_lesion_dice,
+                            normal_fp_fraction=source_val_metrics["normal_fp_fraction"],
+                        )
+                    )
+
+                retained_candidates = eligible_checkpoint_candidates(
+                    checkpoint_candidates,
+                    tolerance=training_config.checkpoint_selection_tolerance,
+                )
+                retained_paths = {candidate.path for candidate in retained_candidates}
+
+                for candidate in checkpoint_candidates:
+                    if candidate.path not in retained_paths:
+                        candidate.path.unlink(missing_ok=True)
+
+                checkpoint_candidates = retained_candidates
+
+                domain_mlflow_metrics = {
+                    f"source_val_{domain}_lesion_dice": float(metrics["lesion_dice"])
+                    for domain, metrics in source_val_metrics_by_domain.items()
+                }
+
+                mlflow.log_metrics(
+                    {
+                        "train_loss": float(train_loss),
+                        "source_val_loss": float(source_val_metrics["loss"]),
+                        "source_val_dice": float(source_val_metrics["dice"]),
+                        "source_val_lesion_dice": float(
+                            source_val_metrics["lesion_dice"]
+                        ),
+                        "source_val_lesion_recall": float(
+                            source_val_metrics["lesion_recall"]
+                        ),
+                        "source_val_lesion_precision": float(
+                            source_val_metrics["lesion_precision"]
+                        ),
+                        "macro_source_lesion_dice": float(macro_source_val_lesion_dice),
+                        **domain_mlflow_metrics,
+                    },
+                    step=epoch + 1,
+                )
+
+            selected_candidate = select_checkpoint_candidate(
+                checkpoint_candidates,
+                tolerance=training_config.checkpoint_selection_tolerance,
+            )
+            best_checkpoint_path = checkpoint_dir / "best_source_val.pt"
+
+            copy2(
+                selected_candidate.path,
+                best_checkpoint_path,
             )
 
         best_checkpoint = load_checkpoint(
@@ -308,9 +370,16 @@ def main() -> None:
         )
 
         mlflow.log_param("best_epoch", best_checkpoint["epoch"])
-        mlflow.log_metric(
-            "best_macro_source_lesion_dice",
-            float(best_checkpoint["metrics"]["macro_source_lesion_dice"]),
+        mlflow.log_metrics(
+            {
+                "max_observed_macro_source_lesion_dice": (best_observed_macro_dice),
+                "selected_macro_source_lesion_dice": float(
+                    best_checkpoint["metrics"]["macro_source_lesion_dice"]
+                ),
+                "selected_source_normal_fp_fraction": float(
+                    best_checkpoint["metrics"]["normal_fp_fraction"]
+                ),
+            }
         )
 
         model = model.to("cpu")
