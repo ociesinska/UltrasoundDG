@@ -2,7 +2,7 @@
 
 The ERM baseline is a U-Net with an ImageNet-pretrained ResNet34 encoder, trained on the BUS-BRA and Curated BUSI source domains. The baseline uses AdamW with a learning rate of `1e-4`, weight decay of `1e-4`, batch size 16, and a maximum of 40 epochs. The checkpoint with the highest macro-averaged lesion Dice across the two source-validation domains was selected at epoch 22.
 
-BUS-UCLM was used only as the OOD development domain. The locked BrEaST test domain was not evaluated.
+BUS-UCLM was used only as the OOD development domain. Model performance on the reserved BrEaST external evaluation domain was not evaluated.
 
 ## Baseline performance and domain shift
 
@@ -50,7 +50,7 @@ A small Optuna grid search was performed over four learning rates (`1e-3`, `3e-4
 
 The best objective value was obtained with `learning_rate=1e-4`. Weight decay values of `0`, `1e-5`, and `1e-4` all produced exactly the same macro source lesion Dice of **0.8341** at epoch 22. Optuna selected `weight_decay=0` because it was the first of the tied configurations, not because it achieved a better score than the original `1e-4` value.
 
-The selected configuration was retrained as `baseline_tuned_v1`. Direct evaluation showed that the original and selected configurations produced identical metrics at the reported precision:
+The selected configuration was retrained as `baseline_multisource_tuned_v1`. Direct evaluation showed that the original and selected configurations produced identical metrics at the reported precision:
 
 | Metric | Original configuration (`wd=1e-4`) | Optuna-selected configuration (`wd=0`) |
 |---|---:|---:|
@@ -71,3 +71,61 @@ The first tuning round therefore did not improve the ERM baseline. Instead, it c
 These results were obtained with one random seed (`42`). Multi-seed evaluation is required before treating small differences in future experiments as robust.
 
 Predictions were binarized at a probability threshold of `0.5`. A normal scan was counted as containing a non-trivial false-positive region when predicted lesion pixels occupied more than `0.1%` of the processed image.
+
+## Single-source versus multi-source training
+
+To examine whether training on two source domains improves external generalization by itself, additional ERM baselines were trained using only BUS-BRA or only Curated BUSI. All three configurations used the same preprocessing, U-Net architecture with an ImageNet-pretrained ResNet34 encoder, learning rate of `1e-4`, maximum of 40 epochs, and decision threshold of `0.5`. The development split remained fixed with seed `42`, while model training was repeated with seeds `42`, `123`, and `456`. The table reports the mean and sample standard deviation across those three runs.
+
+| Training domains | OOD Dice, all images | OOD lesion Dice | OOD lesion precision | OOD lesion recall | OOD lesion IoU |
+|---|---:|---:|---:|---:|---:|
+| BUS-BRA | 0.330 ± 0.032 | 0.708 ± 0.011 | 0.761 ± 0.011 | 0.732 ± 0.022 | 0.609 ± 0.007 |
+| Curated BUSI | 0.308 ± 0.156 | 0.565 ± 0.092 | 0.550 ± 0.147 | 0.714 ± 0.082 | 0.457 ± 0.097 |
+| BUS-BRA + Curated BUSI | **0.531 ± 0.065** | **0.723 ± 0.021** | **0.797 ± 0.006** | 0.713 ± 0.038 | **0.632 ± 0.019** |
+
+| Training domains | Complete lesion miss rate | Normal FP fraction | Normal FP image rate |
+|---|---:|---:|---:|
+| BUS-BRA | **1.54 ± 2.00%** | 4.61 ± 1.43% | 86.59 ± 5.63% |
+| Curated BUSI | 2.82 ± 4.24% | 4.18 ± 3.67% | 81.87 ± 27.29% |
+| BUS-BRA + Curated BUSI | 4.36 ± 2.19% | **2.15 ± 0.69%** | **52.44 ± 11.83%** |
+
+The BUS-BRA-only model provided stable lesion segmentation across seeds, reaching an OOD lesion Dice of `0.708 ± 0.011`. It nevertheless produced false-positive regions on most normal BUS-UCLM scans: the mean false-positive image rate was 86.59%. This consistent failure is compatible with the absence of normal examples in BUS-BRA training data.
+
+The BUSI-only model was the least stable configuration. Its OOD lesion Dice ranged from `0.4623` to `0.6403`, while its false-positive image rate ranged from 50.49% to 100%. The apparently conservative behaviour observed for seed `42` did not reproduce for the other seeds. Its high variance demonstrates why conclusions from the initial single-seed comparison would have been misleading.
+
+Multi-source training achieved the highest mean OOD lesion Dice, lesion precision, lesion IoU, and all-image Dice. Its advantage over BUS-BRA-only lesion Dice was modest (`0.723` versus `0.708`), but the normal-scan improvement was substantially larger: the mean false-positive fraction decreased from 4.61% to 2.15%, and the false-positive image rate decreased from 86.59% to 52.44%. Multi-source lesion precision was also highly stable across seeds (`0.797 ± 0.006`). These results support the conclusion that combining source domains produces a better-balanced and more robust external-domain model than either single-source configuration.
+
+The complete lesion miss rate requires a separate interpretation. BUS-BRA-only achieved the lowest mean miss rate, whereas the multi-source model missed more entire lesion masks despite producing better average overlap and precision. Multi-source training therefore improves overall segmentation quality and normal-scan robustness, but does not dominate BUS-BRA-only training for every clinically relevant failure mode.
+
+Source-validation scores are not directly comparable between configurations because each single-source model is evaluated on a different source distribution, while the multi-source model is selected using a macro average over both source domains. The OOD results are directly comparable because every model is evaluated on the same BUS-UCLM samples. With only three seeds, the reported variability describes the observed runs but is not intended as a formal statistical significance test.
+
+## Domain-balanced source sampling
+
+The natural multi-source baseline samples images uniformly from the pooled training set, causing the larger BUS-BRA domain to appear more frequently than Curated BUSI. A domain-balanced ERM variant instead assigns each training image a weight inversely proportional to the size of its source domain. This gives BUS-BRA and Curated BUSI equal expected sampling probability while preserving the original number of samples and optimization steps per epoch. Sampling is performed with replacement.
+
+Natural and domain-balanced sampling were compared using the same split, preprocessing, architecture, loss, optimizer, hyperparameters, checkpoint-selection metric, and training seeds (`42`, `123`, and `456`). Only the training sampling strategy changed. The table reports mean and sample standard deviation across the three seeds.
+
+| Metric | Natural sampling | Domain-balanced sampling |
+|---|---:|---:|
+| Macro source lesion Dice | **0.831 ± 0.008** | 0.825 ± 0.002 |
+| BUS-BRA source lesion Dice | 0.889 ± 0.003 | **0.893 ± 0.004** |
+| BUSI source lesion Dice | **0.774 ± 0.013** | 0.757 ± 0.003 |
+| OOD Dice, all images | **0.531 ± 0.065** | 0.393 ± 0.123 |
+| OOD lesion Dice | 0.723 ± 0.021 | **0.727 ± 0.023** |
+| OOD lesion precision | **0.797 ± 0.006** | 0.770 ± 0.010 |
+| OOD lesion recall | 0.713 ± 0.038 | **0.752 ± 0.033** |
+| OOD lesion IoU | **0.632 ± 0.019** | 0.631 ± 0.022 |
+| Complete lesion miss rate | 4.36 ± 2.19% | **0.77 ± 0.67%** |
+| Normal FP fraction | **2.15 ± 0.69%** | 3.06 ± 0.71% |
+| Normal FP image rate | **52.44 ± 11.83%** | 77.07 ± 20.42% |
+
+Domain-balanced sampling produced a clear sensitivity-specific benefit. OOD lesion recall increased from `0.713` to `0.752`, and the complete lesion miss rate decreased from 4.36% to 0.77%. Mean lesion Dice changed only slightly (`0.723` to `0.727`), while lesion IoU remained effectively unchanged.
+
+These gains came with a substantial loss of specificity. OOD lesion precision decreased, the mean falsely segmented fraction on normal scans increased from 2.15% to 3.06%, and the normal false-positive image rate increased from 52.44% to 77.07%. Consequently, all-image OOD Dice decreased markedly from `0.531` to `0.393`. Domain-balanced sampling also failed to improve BUSI source-validation Dice despite increasing the expected frequency of BUSI samples during training.
+
+Under the present evaluation priorities, domain-balanced sampling is therefore not a better general-purpose replacement for natural pooled sampling. It creates a more lesion-sensitive model that rarely misses an entire lesion, but this is achieved by predicting lesion regions more aggressively and producing substantially more false positives on normal scans. This trade-off may also be reinforced by selecting checkpoints exclusively with macro source lesion Dice, which does not penalize false positives on normal images. The result shows that balancing source-domain frequency is not equivalent to balancing lesion prevalence or optimizing normal-case robustness. Natural sampling remains the preferred ERM baseline for subsequent comparisons, while domain-balanced sampling is retained as an informative sensitivity-oriented ablation.
+
+## Checkpoint-selection protocol update
+
+The results above were produced with the original checkpoint rule: select the epoch with the highest macro source lesion Dice. Natural and domain-balanced sampling used the same rule, so their comparison remains internally consistent. However, the observed sensitivity-specific trade-off showed that lesion Dice alone does not distinguish models with substantially different false-positive behaviour on normal scans.
+
+The subsequent [Model selection and tuning V2 protocol](../experiments/model-selection-v2.md) retains lesion Dice as the primary criterion but uses source normal false-positive fraction to choose among checkpoints and tuning trials within `0.01` of the best macro source lesion Dice. BUS-UCLM remains excluded from this selection process. Baseline and domain-balanced models must be rerun under V2 before their new results can replace or be directly compared with the tables above.

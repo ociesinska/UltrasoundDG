@@ -2,7 +2,7 @@
 
 **Domain Generalization for Breast Ultrasound Lesion Segmentation**
 
-Detailed descriptions of the experiments and analysis workflow are available in the [development protocol](reports/experiments/development-v1.md), [EDA report](reports/eda/image-domain-statistics.md), [Preprocessing V1 report](reports/preprocessing/preprocessing-v1.md), and [ERM baseline results](reports/results/baseline.md).
+Detailed descriptions of the experiments and analysis workflow are available in the [development protocol](reports/experiments/development-v1.md), [model-selection protocol](reports/experiments/model-selection-v2.md), [EDA report](reports/eda/image-domain-statistics.md), [Preprocessing V1 report](reports/preprocessing/preprocessing-v1.md), and [ERM baseline results](reports/results/baseline.md).
 
 Breast ultrasound segmentation models are commonly trained and evaluated on data originating from the same dataset. In practice, however, ultrasound images can vary substantially across hospitals, scanners, acquisition protocols, and patient populations.
 
@@ -45,13 +45,13 @@ The study uses independent public breast-ultrasound datasets collected in differ
 | **BUS-BRA**                     | Primary source domain             | Brazil |
 | **Curated BUSI**                | Secondary source domain           | Egypt  |
 | **BUS-UCLM**                    | External development benchmark    | Spain  |
-| **Breast-Lesions-USG (BrEaST)** | Locked final external test domain | Poland |
+| **Breast-Lesions-USG (BrEaST)** | Reserved final external evaluation domain | Poland |
 
 BUS-BRA and Curated BUSI are used as source domains for model development.
 
 BUS-UCLM is used to investigate external generalization during experimentation.
 
-BrEaST is reserved as a **locked final external test set** and is not intended to be used for model selection or hyperparameter tuning.
+BrEaST is reserved for final external performance evaluation and is not used for training, hyperparameter tuning, checkpoint selection, or model selection. Its dataset-level characteristics, including image, label, and mask summaries, were inspected during preliminary EDA. It should therefore be treated as an external evaluation domain, but not as a completely unseen dataset.
 
 Raw and processed medical imaging datasets are not distributed with this repository and are excluded from version control.
 
@@ -91,6 +91,9 @@ Additional analyses will investigate performance across lesion characteristics, 
 ## Reports
 
 * [Cross-domain EDA](reports/eda/image-domain-statistics.md)
+* [Development protocol V1](reports/experiments/development-v1.md)
+* [Model selection and tuning V2](reports/experiments/model-selection-v2.md)
+* [Preprocessing V1](reports/preprocessing/preprocessing-v1.md)
 * [ERM baseline results](reports/results/baseline.md)
 
 ## Licence

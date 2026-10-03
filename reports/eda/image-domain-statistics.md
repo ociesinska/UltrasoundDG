@@ -2,6 +2,8 @@
 
 This report summarizes the first comparison of the four ultrasound domains in the current manifest. The analysis covers dataset composition, patient structure, image properties, and lesion-mask characteristics.
 
+This preliminary analysis includes BrEaST image, label, and mask characteristics. BrEaST labels are not used for training, hyperparameter tuning, checkpoint selection, or model selection, and model performance on BrEaST is reserved for final external evaluation. Because its dataset-level characteristics were inspected here, BrEaST should not be interpreted as a completely unseen dataset.
+
 | Source domain | Images | Patients | Lesion images |
 |---|---:|---:|---:|
 | BrEaST | 256 | 256 | 252 (98.4%) |
@@ -94,7 +96,7 @@ BUS-BRA contains no normal samples, whereas normal images form the majority of B
 
 Under the initial development protocol, BUS-BRA and Curated BUSI together contain only 64 normal images out of 2,325 samples (approximately 2.8%), whereas normal scans account for 61.2% of BUS-UCLM. This creates a substantial lesion-prevalence shift and may lead to increased false-positive segmentation on the unseen BUS-UCLM domain. Evaluation should therefore report performance on normal scans separately rather than relying only on lesion-case Dice scores.
 
-The resulting roles of the source validation split, BUS-UCLM, and the locked BrEaST test domain are defined in the [Development V1 protocol](../experiments/development-v1.md).
+The resulting roles of the source validation split, BUS-UCLM, and the reserved BrEaST external evaluation domain are defined in the [Development V1 protocol](../experiments/development-v1.md).
 
 Patient-level diagnosis counts require special care. In BUS-UCLM, 32 of 37 patients occur under more than one diagnosis across their scans. Counts of normal, benign, and malignant patients consequently overlap and must not be added together as if they were disjoint groups.
 
