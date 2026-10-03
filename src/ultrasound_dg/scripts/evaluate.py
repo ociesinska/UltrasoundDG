@@ -19,7 +19,12 @@ from ultrasound_dg.data.prepare import load_manifest
 from ultrasound_dg.data.preprocessing import SegmentationPreprocessor
 from ultrasound_dg.data.splits import create_development_protocol
 from ultrasound_dg.models.unet import create_unet
-from ultrasound_dg.paths import MANIFEST_PATH, PROJECT_ROOT, RAW_DATA_ROOT
+from ultrasound_dg.paths import (
+    MANIFEST_PATH,
+    PROJECT_ROOT,
+    RAW_DATA_ROOT,
+    get_evaluation_result_path,
+)
 from ultrasound_dg.training.checkpoints import (
     read_checkpoint,
     restore_checkpoint,
@@ -29,6 +34,7 @@ from ultrasound_dg.training.losses import BCEDiceLoss
 from ultrasound_dg.training.metrics import print_metrics
 from ultrasound_dg.utils.device import resolve_device
 from ultrasound_dg.utils.logger import format_logger
+from ultrasound_dg.utils.serialization import save_json
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +164,25 @@ def main() -> None:
         )
 
     print(f"\nMacro source lesion Dice: {macro_source_lesion_dice:.4f}")
+
+    evaluation_results = {
+        "experiment_name": experiment_config.name,
+        "seed": training_config.seed,
+        "checkpoint_path": str(args.checkpoint),
+        "checkpoint_epoch": checkpoint["epoch"],
+        "source_validation": source_val_metrics,
+        "source_domains": source_domain_metrics,
+        "macro_source_lesion_dice": macro_source_lesion_dice,
+        "ood_development": ood_metrics,
+    }
+
+    output_path = get_evaluation_result_path(
+        experiment_name=experiment_config.name,
+        seed=training_config.seed,
+    )
+
+    save_json(data=evaluation_results, path=output_path)
+    logger.info("Evaluation results saved to %s", output_path)
 
 
 if __name__ == "__main__":
