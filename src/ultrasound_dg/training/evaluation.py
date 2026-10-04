@@ -1,4 +1,5 @@
 import math
+from collections import defaultdict
 from collections.abc import Mapping
 from statistics import fmean
 
@@ -24,6 +25,7 @@ def evaluate_loader(
     device: torch.device,
     threshold: float = 0.5,
     normal_fp_area_threshold: float = 0.001,
+    include_patient_metrics: bool = False,
 ) -> dict[str, float]:
     """
     Evaluate a binary segmentation model over a complete DataLoader.
@@ -32,6 +34,11 @@ def evaluate_loader(
     IoU and complete-lesion miss rate for positive cases; and false-positive
     area statistics for normal cases. Predictions are obtained by applying
     sigmoid to model logits and thresholding them at `threshold`.
+
+    When requested, patient-macro metrics first average image scores within
+    each patient and then average those patient means. Patient metrics are
+    unavailable when any sample contributing to that metric lacks a patient
+    identifier.
 
     Returns aggregated dataset-level metrics.
     """
@@ -47,6 +54,9 @@ def evaluate_loader(
     lesion_iou_scores = []
     normal_fp_fractions = []
     lesion_miss_scores = []
+    all_patient_keys: list[str] = []
+    lesion_patient_keys: list[str] = []
+    normal_patient_keys: list[str] = []
 
     with torch.no_grad():
         for batch in loader:
@@ -56,6 +66,37 @@ def evaluate_loader(
             has_lesion = batch["has_lesion"].to(device, dtype=torch.bool)
             lesion_selector = has_lesion
             normal_selector = ~has_lesion
+
+            if include_patient_metrics:
+                batch_patient_keys = [
+                    f"{domain}:{patient_id}" if patient_id else ""
+                    for domain, patient_id in zip(
+                        batch["source_domain"],
+                        batch["patient_id"],
+                        strict=True,
+                    )
+                ]
+                lesion_flags = lesion_selector.cpu().tolist()
+
+                all_patient_keys.extend(batch_patient_keys)
+                lesion_patient_keys.extend(
+                    patient_key
+                    for patient_key, has_lesion_flag in zip(
+                        batch_patient_keys,
+                        lesion_flags,
+                        strict=True,
+                    )
+                    if has_lesion_flag
+                )
+                normal_patient_keys.extend(
+                    patient_key
+                    for patient_key, has_lesion_flag in zip(
+                        batch_patient_keys,
+                        lesion_flags,
+                        strict=True,
+                    )
+                    if not has_lesion_flag
+                )
 
             logits = model(images)
             loss = loss_fn(logits, targets)
@@ -116,6 +157,12 @@ def evaluate_loader(
 
         lesion_miss_rate = lesion_miss_scores_tensor.mean().item()
     else:
+        lesion_dice_scores_tensor = torch.empty(0)
+        lesion_precision_scores_tensor = torch.empty(0)
+        lesion_recall_scores_tensor = torch.empty(0)
+        lesion_iou_scores_tensor = torch.empty(0)
+        lesion_miss_scores_tensor = torch.empty(0)
+
         mean_lesion_dice = float("nan")
         mean_lesion_precision = float("nan")
         mean_lesion_recall = float("nan")
@@ -135,10 +182,12 @@ def evaluate_loader(
             .item()
         )
     else:
+        normal_fp_fractions_tensor = torch.empty(0)
+
         mean_normal_fp_fraction = float("nan")
         normal_fp_image_rate = float("nan")
 
-    return {
+    metrics = {
         "loss": total_loss / total_samples,
         "dice": mean_dice,
         "lesion_dice": mean_lesion_dice,
@@ -149,6 +198,77 @@ def evaluate_loader(
         "normal_fp_fraction": mean_normal_fp_fraction,
         "normal_fp_image_rate": normal_fp_image_rate,
     }
+
+    if include_patient_metrics:
+        patient_id_coverage = sum(bool(key) for key in all_patient_keys) / len(
+            all_patient_keys
+        )
+        normal_fp_image_scores = (
+            normal_fp_fractions_tensor > normal_fp_area_threshold
+        ).float()
+
+        metrics.update(
+            {
+                "patient_id_coverage": patient_id_coverage,
+                "patient_macro_dice": patient_macro_average(
+                    dice_scores,
+                    all_patient_keys,
+                ),
+                "patient_macro_lesion_dice": patient_macro_average(
+                    lesion_dice_scores_tensor,
+                    lesion_patient_keys,
+                ),
+                "patient_macro_lesion_precision": patient_macro_average(
+                    lesion_precision_scores_tensor,
+                    lesion_patient_keys,
+                ),
+                "patient_macro_lesion_recall": patient_macro_average(
+                    lesion_recall_scores_tensor,
+                    lesion_patient_keys,
+                ),
+                "patient_macro_lesion_iou": patient_macro_average(
+                    lesion_iou_scores_tensor,
+                    lesion_patient_keys,
+                ),
+                "patient_macro_lesion_miss_rate": patient_macro_average(
+                    lesion_miss_scores_tensor,
+                    lesion_patient_keys,
+                ),
+                "patient_macro_normal_fp_fraction": patient_macro_average(
+                    normal_fp_fractions_tensor,
+                    normal_patient_keys,
+                ),
+                "patient_macro_normal_fp_image_rate": patient_macro_average(
+                    normal_fp_image_scores,
+                    normal_patient_keys,
+                ),
+            }
+        )
+
+    return metrics
+
+
+def patient_macro_average(
+    image_scores: torch.Tensor,
+    patient_keys: list[str],
+) -> float:
+    """Average image-level scores with equal weight for every patient."""
+    if image_scores.numel() != len(patient_keys):
+        raise ValueError("Image scores and patient identifiers must have equal length.")
+
+    if image_scores.numel() == 0 or any(not key for key in patient_keys):
+        return float("nan")
+
+    scores_by_patient: dict[str, list[float]] = defaultdict(list)
+
+    for patient_key, score in zip(
+        patient_keys,
+        image_scores.tolist(),
+        strict=True,
+    ):
+        scores_by_patient[patient_key].append(float(score))
+
+    return fmean(fmean(scores) for scores in scores_by_patient.values())
 
 
 def macro_average_domain_metric(

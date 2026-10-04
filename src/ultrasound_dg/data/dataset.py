@@ -55,11 +55,15 @@ class UltrasoundSegmentationDataset(Dataset):
         image = torch.from_numpy(image).permute(2, 0, 1).contiguous()
         mask = torch.from_numpy(mask).unsqueeze(0)
 
+        patient_id = row.get("patient_id", pd.NA)
+        patient_id = "" if pd.isna(patient_id) else str(patient_id)
+
         return {
             "image": image,
             "mask": mask,
             "sample_id": row["sample_id"],
             "source_domain": row["source_domain"],
+            "patient_id": patient_id,
             "diagnosis": row["diagnosis"],
             "has_lesion": bool(row["has_lesion"]),
         }

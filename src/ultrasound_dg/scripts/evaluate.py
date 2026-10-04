@@ -123,6 +123,7 @@ def main() -> None:
         loss_fn=loss_fn,
         device=device,
         threshold=training_config.decision_threshold,
+        include_patient_metrics=True,
     )
     ood_metrics = evaluate_loader(
         model=model,
@@ -130,6 +131,7 @@ def main() -> None:
         loss_fn=loss_fn,
         device=device,
         threshold=training_config.decision_threshold,
+        include_patient_metrics=True,
     )
 
     source_domain_metrics = {
@@ -139,6 +141,7 @@ def main() -> None:
             loss_fn=loss_fn,
             device=device,
             threshold=training_config.decision_threshold,
+            include_patient_metrics=True,
         )
         for domain, loader in source_val_domain_loaders.items()
     }

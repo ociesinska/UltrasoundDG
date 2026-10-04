@@ -46,6 +46,7 @@ def test_dataset_returns_model_ready_tensors(tmp_path: Path) -> None:
                 "source_domain": "test",
                 "image_path": image_path.name,
                 "mask_path": mask_path.name,
+                "patient_id": "patient_1",
                 "diagnosis": "benign",
                 "has_lesion": True,
             },
@@ -54,6 +55,7 @@ def test_dataset_returns_model_ready_tensors(tmp_path: Path) -> None:
                 "source_domain": "test",
                 "image_path": image_path.name,
                 "mask_path": None,
+                "patient_id": pd.NA,
                 "diagnosis": "normal",
                 "has_lesion": False,
             },
@@ -82,7 +84,9 @@ def test_dataset_returns_model_ready_tensors(tmp_path: Path) -> None:
     assert not normal_sample["mask"].any()
     assert lesion_sample["sample_id"] == "test_lesion"
     assert lesion_sample["source_domain"] == "test"
+    assert lesion_sample["patient_id"] == "patient_1"
     assert lesion_sample["diagnosis"] == "benign"
     assert lesion_sample["has_lesion"] is True
     assert normal_sample["diagnosis"] == "normal"
+    assert normal_sample["patient_id"] == ""
     assert normal_sample["has_lesion"] is False

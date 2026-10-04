@@ -1,3 +1,5 @@
+import math
+
 import torch
 
 
@@ -120,3 +122,50 @@ def print_metrics(
     print(f"  lesion_miss_rate:     {metrics['lesion_miss_rate']:.2%}")
     print(f"  normal_fp_fraction:   {metrics['normal_fp_fraction']:.4%}")
     print(f"  normal_fp_image_rate: {metrics['normal_fp_image_rate']:.2%}")
+
+    if "patient_id_coverage" not in metrics:
+        return
+
+    print(f"  patient_id_coverage:  {metrics['patient_id_coverage']:.2%}")
+
+    if not math.isfinite(metrics["patient_macro_dice"]):
+        print("  patient-macro metrics: N/A")
+        return
+
+    print(
+        "  patient_macro_dice:   "
+        f"{_format_finite(metrics['patient_macro_dice'], '.4f')}"
+    )
+    print(
+        "  patient_macro_lesion_dice:      "
+        f"{_format_finite(metrics['patient_macro_lesion_dice'], '.4f')}"
+    )
+    print(
+        "  patient_macro_lesion_precision: "
+        f"{_format_finite(metrics['patient_macro_lesion_precision'], '.4f')}"
+    )
+    print(
+        "  patient_macro_lesion_recall:    "
+        f"{_format_finite(metrics['patient_macro_lesion_recall'], '.4f')}"
+    )
+    print(
+        "  patient_macro_lesion_iou:       "
+        f"{_format_finite(metrics['patient_macro_lesion_iou'], '.4f')}"
+    )
+    print(
+        "  patient_macro_lesion_miss_rate: "
+        f"{_format_finite(metrics['patient_macro_lesion_miss_rate'], '.2%')}"
+    )
+    print(
+        "  patient_macro_normal_fp_fraction:   "
+        f"{_format_finite(metrics['patient_macro_normal_fp_fraction'], '.4%')}"
+    )
+    print(
+        "  patient_macro_normal_fp_image_rate: "
+        f"{_format_finite(metrics['patient_macro_normal_fp_image_rate'], '.2%')}"
+    )
+
+
+def _format_finite(value: float, format_spec: str) -> str:
+    """Format a finite metric or return a readable unavailable marker."""
+    return format(value, format_spec) if math.isfinite(value) else "N/A"
