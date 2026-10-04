@@ -16,6 +16,8 @@ BUS-BRA and Curated BUSI are used as source domains for training and source-doma
 
 BUS-UCLM answers whether the learned solution transfers to a different acquisition environment. It is not an additional part of `source_val` and is never used for training. Because its results may guide architecture, preprocessing, augmentation, and model-selection decisions during development, BUS-UCLM is an **OOD development domain**, not an unbiased final test set.
 
+BUS-UCLM results are reported both per image and as patient-macro averages, so patients with many scans do not dominate the latter. Lesion and normal metrics are aggregated separately because the same patient may contribute both lesion-positive and normal scans. Patient-macro metrics are not used for model selection.
+
 For a domain-generalization experiment, a model with slightly lower `source_val` performance may be preferable when it performs substantially better on BUS-UCLM, provided that source performance remains acceptable and the selection rule is applied consistently. Source and OOD results should always be reported separately so that this trade-off remains visible.
 
 BrEaST model performance is evaluated only after the experimental choices have been finalized. Its labels are not used for training, hyperparameter tuning, checkpoint selection, or model selection. However, dataset-level image, label, and mask characteristics were inspected during preliminary EDA, so BrEaST is not described as a completely unseen dataset. It remains useful as an external evaluation domain because it provides one image per patient, giving a comparatively strong patient-independent test set, with this preliminary inspection reported as a limitation.

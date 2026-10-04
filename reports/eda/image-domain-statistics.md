@@ -98,7 +98,7 @@ Under the initial development protocol, BUS-BRA and Curated BUSI together contai
 
 The resulting roles of the source validation split, BUS-UCLM, and the reserved BrEaST external evaluation domain are defined in the [Development V1 protocol](../experiments/development-v1.md).
 
-Patient-level diagnosis counts require special care. In BUS-UCLM, 32 of 37 patients occur under more than one diagnosis across their scans. Counts of normal, benign, and malignant patients consequently overlap and must not be added together as if they were disjoint groups.
+Patient-level label counts require special care. In BUS-UCLM, 32 of 37 patients have scans with more than one image-level diagnosis label. Counts of patients with normal, benign, and malignant scans consequently overlap and must not be interpreted as disjoint patient groups.
 
 ## Visualization findings
 
