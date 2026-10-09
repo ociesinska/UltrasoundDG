@@ -18,6 +18,7 @@ from ultrasound_dg.data.adapters.breast_usg import BreastUSGAdapter
 from ultrasound_dg.data.adapters.bus_bra import BusBraAdapter
 from ultrasound_dg.data.adapters.bus_uclm import BusUclmAdapter
 from ultrasound_dg.data.adapters.busi import BusiAdapter
+from ultrasound_dg.data.augmentations import create_train_augmenter
 from ultrasound_dg.data.dataset import UltrasoundSegmentationDataset
 from ultrasound_dg.data.domain_loaders import create_domain_loaders
 from ultrasound_dg.data.prepare import load_manifest
@@ -125,11 +126,17 @@ def main() -> None:
 
     preprocessor = SegmentationPreprocessor(config=preprocessing_config)
 
+    train_augmenter = create_train_augmenter(
+        config=experiment_config.augmentation,
+        seed=training_config.seed,
+    )
+
     train_dataset = UltrasoundSegmentationDataset(
         manifest=protocol["train"],
         project_root=PROJECT_ROOT,
         adapters=adapters,
         preprocessor=preprocessor,
+        augmenter=train_augmenter,
     )
 
     source_val_dataset = UltrasoundSegmentationDataset(
@@ -198,9 +205,12 @@ def main() -> None:
         log_config(development_config, "development_config")
         log_config(preprocessing_config, "preprocessing_config")
         log_config(training_config, "training_config")
+        log_config(experiment_config.augmentation, "augmentation_config")
 
         mlflow.log_params(
             {
+                "augmentation_enabled": experiment_config.augmentation.enabled,
+                "augmentation_version": experiment_config.augmentation.version,
                 "architecture": "unet",
                 "encoder": "resnet34",
                 "encoder_weights": "imagenet",

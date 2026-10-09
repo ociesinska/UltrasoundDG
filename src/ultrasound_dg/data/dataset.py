@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import albumentations as A
 import numpy as np
 import pandas as pd
 import torch
@@ -17,12 +18,14 @@ class UltrasoundSegmentationDataset(Dataset):
         project_root: Path,
         adapters: dict[str, DatasetAdapter],
         preprocessor: SegmentationPreprocessor,
+        augmenter: A.Compose | None = None,
     ):
         """Initialize dataset access from a manifest and domain adapters."""
         self.manifest = manifest.reset_index(drop=True)
         self.project_root = project_root
         self.adapters = adapters
         self.preprocessor = preprocessor
+        self.augmenter = augmenter
 
     def __len__(self) -> int:
         """Return the number of manifest samples."""
@@ -47,6 +50,12 @@ class UltrasoundSegmentationDataset(Dataset):
             mask_path = self.project_root / row["mask_path"]
             adapter = self.adapters[row["source_domain"]]
             mask = adapter.decode_mask(mask_path)
+
+        if self.augmenter is not None:
+            augmented = self.augmenter(image=image, mask=mask)
+
+            image = augmented["image"]
+            mask = augmented["mask"]
 
         processed = self.preprocessor(image=image, mask=mask)
         image = processed["image"]
