@@ -1,5 +1,6 @@
 import argparse
 import logging
+import math
 from pathlib import Path
 from shutil import copy2
 from tempfile import TemporaryDirectory
@@ -379,18 +380,27 @@ def main() -> None:
             device=device,
         )
 
+        selected_mlflow_metrics = {
+            "max_observed_macro_source_lesion_dice": float(best_observed_macro_dice),
+            "selected_macro_source_lesion_dice": float(
+                best_checkpoint["metrics"]["macro_source_lesion_dice"]
+            ),
+        }
+
+        normal_fp_fraction = float(best_checkpoint["metrics"]["normal_fp_fraction"])
+
+        if math.isfinite(normal_fp_fraction):
+            selected_mlflow_metrics["selected_source_normal_fp_fraction"] = (
+                normal_fp_fraction
+            )
+        else:
+            logger.info(
+                "Skipping source normal FP metric because "
+                "source validation contains no normal cases."
+            )
+
         mlflow.log_param("best_epoch", best_checkpoint["epoch"])
-        mlflow.log_metrics(
-            {
-                "max_observed_macro_source_lesion_dice": (best_observed_macro_dice),
-                "selected_macro_source_lesion_dice": float(
-                    best_checkpoint["metrics"]["macro_source_lesion_dice"]
-                ),
-                "selected_source_normal_fp_fraction": float(
-                    best_checkpoint["metrics"]["normal_fp_fraction"]
-                ),
-            }
-        )
+        mlflow.log_metrics(selected_mlflow_metrics)
 
         model = model.to("cpu")
         model.eval()
