@@ -33,6 +33,7 @@ class UltrasoundSegmentationDataset(Dataset):
 
     def __getitem__(self, idx: int) -> dict:
         """Load and preprocess one image-mask pair with sample metadata."""
+        applied_transforms = None
         row = self.manifest.iloc[idx]
 
         image_path = self.project_root / row["image_path"]
@@ -52,10 +53,15 @@ class UltrasoundSegmentationDataset(Dataset):
             mask = adapter.decode_mask(mask_path)
 
         if self.augmenter is not None:
-            augmented = self.augmenter(image=image, mask=mask)
+            augmented = self.augmenter(
+                image=image,
+                mask=mask,
+            )
 
             image = augmented["image"]
             mask = augmented["mask"]
+
+            applied_transforms = augmented.get("applied_transforms")
 
         processed = self.preprocessor(image=image, mask=mask)
         image = processed["image"]
@@ -67,7 +73,7 @@ class UltrasoundSegmentationDataset(Dataset):
         patient_id = row.get("patient_id", pd.NA)
         patient_id = "" if pd.isna(patient_id) else str(patient_id)
 
-        return {
+        sample = {
             "image": image,
             "mask": mask,
             "sample_id": row["sample_id"],
@@ -76,3 +82,8 @@ class UltrasoundSegmentationDataset(Dataset):
             "diagnosis": row["diagnosis"],
             "has_lesion": bool(row["has_lesion"]),
         }
+
+        if applied_transforms is not None:
+            sample["applied_transforms"] = applied_transforms
+
+        return sample

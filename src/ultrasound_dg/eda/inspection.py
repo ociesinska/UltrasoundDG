@@ -76,7 +76,7 @@ def _load_image_and_mask(
     return image, mask
 
 
-def _draw_mask_overlay(
+def draw_mask_overlay(
     ax,
     image: np.ndarray,
     mask: np.ndarray,
@@ -283,7 +283,7 @@ def display_inspection_cases(
             mask_ax.axis("off")
 
             # Image-mask overlay
-            _draw_mask_overlay(overlay_ax, image, mask)
+            draw_mask_overlay(overlay_ax, image, mask)
             overlay_ax.set_title("Mask overlay")
 
             # Useful sample information
@@ -434,7 +434,7 @@ def _lesion_size_extremes_figure(
                 adapters=adapters,
             )
             ax = axes[row_index, column_index]
-            _draw_mask_overlay(ax, image, mask)
+            draw_mask_overlay(ax, image, mask)
             ax.set_title(
                 f"{DOMAIN_LABELS[source_domain]} — {extreme_name}\n"
                 f"lesion fraction = {sample['lesion_fraction']:.2%}",
@@ -493,7 +493,7 @@ def _multi_component_figure(
                 project_root=project_root,
                 adapters=adapters,
             )
-            _draw_mask_overlay(ax, image, mask)
+            draw_mask_overlay(ax, image, mask)
             ax.set_title(
                 f"{DOMAIN_LABELS[source_domain]} — {sample['sample_id']}\n"
                 f"components = {sample['component_count']:.0f}",
