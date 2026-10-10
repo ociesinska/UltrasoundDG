@@ -37,13 +37,41 @@ strongly on normal-case prevalence and can change even when lesion segmentation
 quality does not. Cross-domain interpretation should therefore prioritize
 `lesion_dice` together with the two normal false-positive metrics.
 
+## Primary outcome and model selection
+
+The primary segmentation outcome is `lesion_dice`. It directly measures mask
+overlap on scans where a lesion is present and, unlike all-image `dice`, is not
+confounded by differences in normal-case prevalence between domains. It is the
+main headline metric for source-to-OOD comparisons.
+
+`lesion_dice` is not treated as a sufficient score on its own. Any conclusion
+about the best model must also consider `lesion_recall`, `lesion_miss_rate`,
+`normal_fp_fraction`, and `normal_fp_image_rate`. This prevents a model that
+obtains good lesion overlap by predicting foreground aggressively from being
+declared better despite poor behaviour on normal scans.
+
+Checkpoint and hyperparameter selection use source validation only. The
+primary selection metric is `macro_source_lesion_dice`, which gives every
+source domain equal weight. The V2 selection rule is:
+
+1. retain candidates within `0.01` of the best macro source lesion Dice;
+2. among them, select the candidate with the lowest source
+   `normal_fp_fraction`;
+3. use higher macro source lesion Dice to break an exact tie.
+
+If no normal source-validation images are available, selection falls back to
+the highest macro source lesion Dice. This is a lexicographic selection rule,
+not a weighted composite score: lesion segmentation remains the primary
+objective, while normal-case behaviour distinguishes candidates with similar
+lesion performance. Neither BUS-UCLM nor BrEaST is used to select a checkpoint
+or tune hyperparameters.
+
 ## Aggregation levels
 
 Image-level metrics give every scan equal weight. `macro_source_lesion_dice`
 first computes `lesion_dice` separately for each source domain and then averages
 the domain results, so BUS-BRA and BUSI receive equal weight despite their
-different sizes. This metric is used for tuning and as the primary checkpoint
-selection criterion.
+different sizes.
 
 Patient-macro metrics use a two-stage average:
 
