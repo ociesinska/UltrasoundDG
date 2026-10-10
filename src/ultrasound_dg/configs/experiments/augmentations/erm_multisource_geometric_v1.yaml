@@ -1,0 +1,55 @@
+name: erm_multisource_geometric_v1
+
+development:
+  seed: 42
+
+  source_domains:
+    - bus_bra
+    - busi
+
+  ood_development_domain:
+    - bus_uclm
+
+  final_test_domain:
+    - breast_usg
+
+  excluded_domains: []
+
+  source_validation_fraction: 0.2
+
+  splitting:
+    bus_bra:
+      strategy: patient
+      stratify_by: diagnosis
+
+    busi:
+      strategy: sample
+      stratify_by: diagnosis
+
+preprocessing:
+  version: v1
+  target_size: 256
+
+augmentation:
+  enabled: true
+  version: geometric_v1
+  horizontal_flip_probability: 0.5
+  transform_probability: 0.5
+  rotation_limit_degrees: 7.0
+  translation_limit: 0.02
+  scale_min: 0.94
+  scale_max: 1.0
+
+training:
+  seed: 42
+  device: auto
+  train_batch_size: 16
+  eval_batch_size: 16
+  epochs: 40
+  num_workers: 0
+  learning_rate: 0.0001
+  weight_decay: 0.001
+  optimizer: AdamW
+  decision_threshold: 0.5
+  sampling_strategy: natural
+  checkpoint_selection_tolerance: 0.01

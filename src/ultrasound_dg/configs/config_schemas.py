@@ -69,7 +69,7 @@ class AugmentationConfig(BaseModel):
     rotation_limit_degrees: float = Field(default=7.0, ge=0)
     translation_limit: float = Field(default=0.02, ge=0, le=1)
     scale_min: float = Field(default=0.94, gt=0)
-    scale_max: float = Field(default=1.06, gt=0)
+    scale_max: float = Field(default=1.0, gt=0)
 
     @model_validator(mode="after")
     def validate_scale_range(self) -> "AugmentationConfig":

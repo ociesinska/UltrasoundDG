@@ -1,0 +1,44 @@
+name: baseline_single_busi_v2
+
+development:
+  seed: 42
+
+  source_domains:
+    - busi
+
+  ood_development_domain:
+    - bus_uclm
+
+  final_test_domain:
+    - breast_usg
+
+  excluded_domains:
+    - bus_bra
+
+  source_validation_fraction: 0.2
+
+  splitting:
+    busi:
+      strategy: sample
+      stratify_by: diagnosis
+
+preprocessing:
+  version: v1
+  target_size: 256
+
+augmentation:
+  enabled: false
+
+training:
+  seed: 42
+  device: auto
+  train_batch_size: 16
+  eval_batch_size: 16
+  epochs: 40
+  num_workers: 0
+  optimizer: AdamW
+  learning_rate: 0.0001
+  weight_decay: 0.001
+  decision_threshold: 0.5
+  sampling_strategy: natural
+  checkpoint_selection_tolerance: 0.01
