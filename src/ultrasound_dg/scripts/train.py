@@ -63,11 +63,11 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    """Train, checkpoint, and log a configured segmentation baseline."""
+    """Train, checkpoint, and log a configured segmentation experiment."""
     format_logger()
 
     parser = argparse.ArgumentParser(
-        description="Train a breast ultrasound segmentation baseline."
+        description="Train a configured breast ultrasound segmentation experiment."
     )
 
     parser.add_argument(
