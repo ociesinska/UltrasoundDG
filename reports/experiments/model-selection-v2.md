@@ -18,4 +18,13 @@ Optuna still uses macro lesion Dice for pruning. Each trial selects its best epo
 
 In the multi-source protocol, normal source-validation cases come only from BUSI. This makes the secondary metric relatively noisy, but the `0.01` tolerance prevents it from overriding a meaningful Dice difference.
 
-The configuration is stored in `src/ultrasound_dg/configs/tuning/baseline_v2.yaml`. V1 results remain preliminary evidence; V2 becomes the primary baseline protocol after the relevant experiments are rerun.
+The tuning configuration is stored in
+`src/ultrasound_dg/configs/tuning/baseline_v2.yaml`. The completed search
+selected AdamW with learning rate `1e-4` and weight decay `1e-3`. The resulting
+natural multi-source model was evaluated with three training seeds and is now
+the final ERM reference. Its configuration is stored in
+`src/ultrasound_dg/configs/experiments/baseline/baseline_multisource_tuned_v2.yaml`;
+results are reported in [Final ERM baseline](../results/baseline.md).
+
+V1 configurations and results are retained only as development history. New
+experiments use V2 selection and compare against the three-seed V2 baseline.

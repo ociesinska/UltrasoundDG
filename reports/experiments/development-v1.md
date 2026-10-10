@@ -37,4 +37,7 @@ Normal scans represent 61.2% of BUS-UCLM, compared with approximately 2.8% in th
 
 BUS-BRA is partitioned at patient level to keep each patient entirely within either source train or source validation. Reliable patient identifiers are unavailable for Curated BUSI; therefore, its source train/validation partition is performed at image level. Potential same-patient overlap between these partitions cannot be excluded.
 
-The machine-readable configuration for this protocol is stored in `src/ultrasound_dg/configs/development/v1.yaml`. The source-only checkpoint and hyperparameter-selection procedure is documented separately in [Model selection and tuning V2](model-selection-v2.md).
+The protocol is embedded in each experiment YAML. The frozen reference is
+`src/ultrasound_dg/configs/experiments/baseline/baseline_multisource_tuned_v2.yaml`.
+The source-only checkpoint and hyperparameter-selection procedure is documented
+separately in [Model selection and tuning V2](model-selection-v2.md).

@@ -2,7 +2,7 @@
 
 **Domain Generalization for Breast Ultrasound Lesion Segmentation**
 
-Detailed descriptions of the experiments and analysis workflow are available in the [development protocol](reports/experiments/development-v1.md), [model-selection protocol](reports/experiments/model-selection-v2.md), [EDA report](reports/eda/image-domain-statistics.md), [Preprocessing V1 report](reports/preprocessing/preprocessing-v1.md), and [ERM baseline results](reports/results/baseline.md).
+Detailed descriptions of the experiments and analysis workflow are available in the [development protocol](reports/experiments/development-v1.md), [model-selection protocol](reports/experiments/model-selection-v2.md), [evaluation metrics guide](reports/evaluation/metrics.md), [EDA report](reports/eda/image-domain-statistics.md), [Preprocessing V1 report](reports/preprocessing/preprocessing-v1.md), and [ERM baseline results](reports/results/baseline.md).
 
 Breast ultrasound segmentation models are commonly trained and evaluated on data originating from the same dataset. In practice, however, ultrasound images can vary substantially across hospitals, scanners, acquisition protocols, and patient populations.
 
@@ -59,6 +59,9 @@ Detailed dataset descriptions, official download links, versions, licences, and 
 
 ## Experimental overview
 
+The frozen ERM reference configuration is
+[`baseline_multisource_tuned_v2.yaml`](src/ultrasound_dg/configs/experiments/baseline/baseline_multisource_tuned_v2.yaml).
+
 The initial experimental setup follows the general structure:
 
 ```text
@@ -78,13 +81,18 @@ BUS-BRA + BUSI
 
 The main quantity of interest is the **generalization gap** between in-domain and external-domain performance.
 
-Evaluation will include segmentation metrics such as:
+Evaluation reports complementary measures of lesion segmentation and behaviour
+on normal scans:
 
 * Dice score
 * IoU / Jaccard
-* precision
-* recall / sensitivity
-* HD95
+* pixel precision and recall
+* complete lesion miss rate
+* false-positive area and image rates on normal scans
+* patient-macro metrics where patient identifiers are available
+
+Definitions and aggregation rules are documented in the
+[evaluation metrics guide](reports/evaluation/metrics.md).
 
 Additional analyses will investigate performance across lesion characteristics, dataset-specific image properties, and model failure cases.
 
@@ -93,6 +101,7 @@ Additional analyses will investigate performance across lesion characteristics, 
 * [Cross-domain EDA](reports/eda/image-domain-statistics.md)
 * [Development protocol V1](reports/experiments/development-v1.md)
 * [Model selection and tuning V2](reports/experiments/model-selection-v2.md)
+* [Evaluation metrics](reports/evaluation/metrics.md)
 * [Preprocessing V1](reports/preprocessing/preprocessing-v1.md)
 * [ERM baseline results](reports/results/baseline.md)
 
