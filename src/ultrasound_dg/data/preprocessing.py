@@ -1,10 +1,15 @@
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from PIL import Image
 
 from ultrasound_dg.configs.config_schemas import (
     SegmentationPreprocessingConfig,
+)
+from ultrasound_dg.data.augmentations import (
+    AppliedTransform,
+    AugmentationPipeline,
 )
 
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
@@ -36,10 +41,35 @@ def denormalize_imagenet(image: np.ndarray) -> np.ndarray:
 class SegmentationPreprocessor:
     config: SegmentationPreprocessingConfig
 
-    def __call__(self, image: np.ndarray, mask: np.ndarray) -> dict[str, np.ndarray]:
+    def __call__(
+        self,
+        image: np.ndarray,
+        mask: np.ndarray,
+        augmentation: AugmentationPipeline | None = None,
+    ) -> dict[str, Any]:
         """Prepare an aligned image-mask pair for a pretrained RGB encoder."""
+        applied_transforms: list[AppliedTransform] = []
+
+        if augmentation is not None:
+            image, mask, transforms = augmentation.apply_before_grayscale(
+                image=image,
+                mask=mask,
+            )
+            applied_transforms.extend(transforms)
 
         image = to_grayscale(image)
+
+        if augmentation is not None:
+            image_float = image.astype(np.float32) / 255.0
+            image_float, transforms = augmentation.apply_after_grayscale(
+                image=image_float,
+            )
+            applied_transforms.extend(transforms)
+
+            image_float = np.clip(image_float, 0.0, 1.0)
+
+            # Return to the existing uint8 preprocessing path.
+            image = np.rint(image_float * 255.0).astype(np.uint8)
 
         image, mask = self._resize_and_pad(image, mask)
         image = image.astype(np.float32) / 255.0
@@ -47,10 +77,15 @@ class SegmentationPreprocessor:
         image = normalize_imagenet(image)
         mask = mask.astype(np.float32)
 
-        return {
+        result = {
             "image": image,
             "mask": mask,
         }
+
+        if applied_transforms:
+            result["applied_transforms"] = applied_transforms
+
+        return result
 
     def _resize_and_pad(
         self, image: np.ndarray, mask: np.ndarray

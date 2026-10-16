@@ -27,6 +27,7 @@ preprocessing:
   target_size: 256
 
 augmentation:
+  version: none
   enabled: false
 
 training:

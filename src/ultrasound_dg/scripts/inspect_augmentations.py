@@ -10,7 +10,7 @@ from ultrasound_dg.data.adapters.breast_usg import BreastUSGAdapter
 from ultrasound_dg.data.adapters.bus_bra import BusBraAdapter
 from ultrasound_dg.data.adapters.bus_uclm import BusUclmAdapter
 from ultrasound_dg.data.adapters.busi import BusiAdapter
-from ultrasound_dg.data.augmentations import create_train_augmenter
+from ultrasound_dg.data.augmentations import create_augmentation_pipeline
 from ultrasound_dg.data.dataset import UltrasoundSegmentationDataset
 from ultrasound_dg.data.prepare import load_manifest
 from ultrasound_dg.data.preprocessing import SegmentationPreprocessor
@@ -95,7 +95,7 @@ def main() -> None:
 
     preprocessor = SegmentationPreprocessor(config=experiment_config.preprocessing)
 
-    augmenter = create_train_augmenter(
+    augmentation = create_augmentation_pipeline(
         config=experiment_config.augmentation,
         seed=args.seed,
         save_applied_params=True,
@@ -106,7 +106,6 @@ def main() -> None:
         project_root=PROJECT_ROOT,
         adapters=adapters,
         preprocessor=preprocessor,
-        augmenter=None,
     )
 
     augmented_dataset = UltrasoundSegmentationDataset(
@@ -114,7 +113,7 @@ def main() -> None:
         project_root=PROJECT_ROOT,
         adapters=adapters,
         preprocessor=preprocessor,
-        augmenter=augmenter,
+        augmentation=augmentation,
     )
 
     figure = plot_augmentation_examples(

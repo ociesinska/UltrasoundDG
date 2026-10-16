@@ -1,12 +1,12 @@
 from pathlib import Path
 
-import albumentations as A
 import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
 from ultrasound_dg.data.adapters.base import DatasetAdapter
+from ultrasound_dg.data.augmentations import AugmentationPipeline
 from ultrasound_dg.data.image_io import load_rgb_image
 from ultrasound_dg.data.preprocessing import SegmentationPreprocessor
 
@@ -18,14 +18,14 @@ class UltrasoundSegmentationDataset(Dataset):
         project_root: Path,
         adapters: dict[str, DatasetAdapter],
         preprocessor: SegmentationPreprocessor,
-        augmenter: A.Compose | None = None,
+        augmentation: AugmentationPipeline | None = None,
     ):
         """Initialize dataset access from a manifest and domain adapters."""
         self.manifest = manifest.reset_index(drop=True)
         self.project_root = project_root
         self.adapters = adapters
         self.preprocessor = preprocessor
-        self.augmenter = augmenter
+        self.augmentation = augmentation
 
     def __len__(self) -> int:
         """Return the number of manifest samples."""
@@ -33,7 +33,6 @@ class UltrasoundSegmentationDataset(Dataset):
 
     def __getitem__(self, idx: int) -> dict:
         """Load and preprocess one image-mask pair with sample metadata."""
-        applied_transforms = None
         row = self.manifest.iloc[idx]
 
         image_path = self.project_root / row["image_path"]
@@ -52,20 +51,14 @@ class UltrasoundSegmentationDataset(Dataset):
             adapter = self.adapters[row["source_domain"]]
             mask = adapter.decode_mask(mask_path)
 
-        if self.augmenter is not None:
-            augmented = self.augmenter(
-                image=image,
-                mask=mask,
-            )
-
-            image = augmented["image"]
-            mask = augmented["mask"]
-
-            applied_transforms = augmented.get("applied_transforms")
-
-        processed = self.preprocessor(image=image, mask=mask)
+        processed = self.preprocessor(
+            image=image,
+            mask=mask,
+            augmentation=self.augmentation,
+        )
         image = processed["image"]
         mask = processed["mask"]
+        applied_transforms = processed.get("applied_transforms")
 
         image = torch.from_numpy(image).permute(2, 0, 1).contiguous()
         mask = torch.from_numpy(mask).unsqueeze(0)

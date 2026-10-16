@@ -102,6 +102,26 @@ def format_applied_transforms(
                 f"y={translation_y:+.2%}"
             )
 
+        elif transform_name == "RandomBrightnessContrast":
+            alpha = float(params["alpha"])
+            beta = float(params["beta"])
+
+            if not np.isclose(beta, 0.0):
+                descriptions.append(f"brightness: {beta:+.3f}")
+            else:
+                descriptions.append(f"contrast factor: {alpha:.3f}")
+
+        elif transform_name == "RandomGamma":
+            descriptions.append(f"gamma: {float(params['gamma']):.3f}")
+
+        elif transform_name == "GaussNoise":
+            noise_std = float(np.asarray(params["noise_map"]).std())
+            descriptions.append(f"Gaussian noise std: {noise_std:.3f}")
+
+        elif transform_name == "GaussianBlur":
+            kernel_size = len(params["kernel"])
+            descriptions.append(f"Gaussian blur: {kernel_size}×{kernel_size}")
+
         else:
             descriptions.append(transform_name)
 
@@ -174,7 +194,7 @@ def plot_augmentation_examples(
             )
 
     figure.suptitle(
-        "Geometric augmentation quality control",
+        "Training augmentation quality control",
         fontsize=16,
     )
 

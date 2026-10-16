@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -58,11 +58,11 @@ class TuningConfig(BaseModel):
     warmup_epochs: int = Field(default=10, ge=0)
 
 
-class AugmentationConfig(BaseModel):
+class GeometricAugmentationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = False
-    version: Literal["geometric_v1"] = "geometric_v1"
+    version: Literal["geometric_v1"]
+    enabled: Literal[True] = True
 
     horizontal_flip_probability: float = Field(default=0.5, ge=0, le=1)
     transform_probability: float = Field(default=0.5, ge=0, le=1)
@@ -72,11 +72,53 @@ class AugmentationConfig(BaseModel):
     scale_max: float = Field(default=1.0, gt=0)
 
     @model_validator(mode="after")
-    def validate_scale_range(self) -> "AugmentationConfig":
+    def validate_scale_range(self) -> "GeometricAugmentationConfig":
         """Require the minimum scale to be no greater than the maximum."""
         if self.scale_min > self.scale_max:
             raise ValueError("scale_min must be less than or equal to scale_max")
         return self
+
+
+class NoAugmentationConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal["none"] = "none"
+    enabled: Literal[False] = False
+
+
+class IntensityAugmentationConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal["intensity_v1"]
+    enabled: Literal[True] = True
+
+    transform_probability: float = Field(default=0.5, ge=0, le=1)
+    brightness_limit: float = Field(default=0.10, ge=0, le=1)
+    contrast_limit: float = Field(default=0.10, ge=0, le=1)
+    gamma_min: float = Field(default=0.90, gt=0)
+    gamma_max: float = Field(default=1.10, gt=0)
+    noise_std_max: float = Field(default=0.02, ge=0, le=1)
+    blur_kernel_size: int = Field(default=3, gt=0)
+    blur_sigma_max: float = Field(default=1.0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_intensity_ranges(
+        self,
+    ) -> "IntensityAugmentationConfig":
+        """Validate intensity augmentation ranges."""
+        if self.gamma_min > self.gamma_max:
+            raise ValueError("gamma_min must be less than or equal to gamma_max")
+
+        if self.blur_kernel_size % 2 == 0:
+            raise ValueError("blur_kernel_size must be odd")
+
+        return self
+
+
+AugmentationConfig = Annotated[
+    NoAugmentationConfig | GeometricAugmentationConfig | IntensityAugmentationConfig,
+    Field(discriminator="version"),
+]
 
 
 class ExperimentConfig(BaseModel):
@@ -85,5 +127,25 @@ class ExperimentConfig(BaseModel):
     name: str
     development: DevelopmentConfig
     preprocessing: SegmentationPreprocessingConfig
-    augmentation: AugmentationConfig = Field(default_factory=AugmentationConfig)
+    augmentation: AugmentationConfig = Field(default_factory=NoAugmentationConfig)
     training: TrainingConfig
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_disabled_augmentation(cls, data):
+        """Map legacy disabled geometric configs to the explicit no-op variant."""
+        if not isinstance(data, dict):
+            return data
+
+        augmentation = data.get("augmentation")
+
+        if isinstance(augmentation, dict) and augmentation.get("enabled") is False:
+            return {
+                **data,
+                "augmentation": {
+                    "version": "none",
+                    "enabled": False,
+                },
+            }
+
+        return data
